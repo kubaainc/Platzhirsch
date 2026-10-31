@@ -254,3 +254,4 @@ textarea{width:100%}
 .ranges{display:grid;gap:8px;flex-basis:100%}
 .ranges>span{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end}
 .tl.closed,.plan.closed{opacity:.7;filter:grayscale(.5)}
+.plan:not(.edit) .tb[role=button]{cursor:pointer}

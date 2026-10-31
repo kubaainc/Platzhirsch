@@ -3,7 +3,7 @@ import { supabase, type DayRule, type Guest, type Reservation, type Room, type T
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, roomClosed, suggest, tableBusy } from './booking'
 
-const DEFAULT_HOURS = { from: 1080, to: 1380 }
+export const DEFAULT_HOURS = { from: 1080, to: 1380 }
 const STAY = 120
 const natural = (a: string, b: string) => a.localeCompare(b, 'de', { numeric: true })
 
@@ -229,9 +229,10 @@ function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, 
   )
 }
 
-function NewReservation(p: {
+export function NewReservation(p: {
   team: Team; day: string; rooms: Room[]; tables: TableRow[]; guests: Guest[]; res: Reservation[]; hours: { from: number; to: number }
   initial: NewRes; roomId: string; onClose: () => void; onSaved: (g?: Guest) => void
+  onDay?: (d: string) => void; blocked?: boolean
 }) {
   const initTable = p.tables.find(t => t.id === p.initial.table)
   const [rid, setRid] = useState(initTable?.room_id ?? p.roomId)
@@ -257,6 +258,7 @@ function NewReservation(p: {
   async function submit(e: FormEvent) {
     e.preventDefault(); if (busy) return
     setErr('')
+    if (p.blocked) return setErr('Dieser Tag ist gesperrt. Entsperre ihn in der Zeitleiste, um zu reservieren.')
     if (!chosen) return setErr('Kein passender Tisch frei. Wähle eine andere Zeit oder einen anderen Bereich.')
     if (!hasRoom) return setErr(`Tisch ${chosen.label} fasst ${chosen.min_seats}–${chosen.max_seats} Personen.`)
     if (tableId !== 'auto' && findTable({ ...opts, roomId: chosen.room_id })?.id !== chosen.id && p.res.some(r => (r.table_id === chosen.id || r.alt_table_id === chosen.id) && r.start_min < start + STAY && start < r.start_min + r.duration_min))
@@ -280,6 +282,7 @@ function NewReservation(p: {
   return (
     <Modal title="Neue Reservierung" onClose={p.onClose}>
       <form onSubmit={submit} className="grid2">
+        {p.onDay && <label style={{ gridColumn: '1/-1' }}>Datum<input type="date" required value={p.day} onChange={e => e.target.value && p.onDay!(e.target.value)} /></label>}
         <label>Name<input required value={name} onChange={e => setName(e.target.value)} placeholder={matched?.name} /></label>
         <label>Personen<input type="number" min={1} max={60} required value={party} onChange={e => setParty(Math.max(1, +e.target.value || 1))} /></label>
         <label>Telefon<input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></label>
@@ -296,6 +299,7 @@ function NewReservation(p: {
         <label style={{ gridColumn: '1/-1' }}>Notiz<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <div style={{ gridColumn: '1/-1' }} aria-live="polite">
           {chosen && hasRoom && <p className="ok">Tisch {chosen.label}{reserve ? `, Wetter-Reserve draußen: ${reserve.label}` : p.rooms.find(r => r.id === chosen.room_id)?.outdoor ? '' : ', draußen ist gerade kein Tisch als Reserve frei'}.</p>}
+          {p.blocked && <p className="err">Dieser Tag ist gesperrt, es sind keine Reservierungen möglich.</p>}
           {!chosen && <p className="err">Zu dieser Zeit ist im Bereich kein passender Tisch frei.</p>}
           {!auto && alts.length > 0 && <p>Besser: {alts.map(a => <button type="button" className="ghost sm" key={a.start} onClick={() => setStart(a.start)}>{hm(a.start)} Uhr ({a.table.label})</button>)}</p>}
           {!auto && alts.length === 0 && <p className="soft">Keine freie Alternative in den Öffnungszeiten. Prüfe die anderen Bereiche; das Team kann auch schwarze Tische von Hand vergeben.</p>}
