@@ -48,9 +48,14 @@ export default function Members({ team }: { team: Team }) {
     setErr('')
     const out: Record<string, unknown> = { team: team.name, exportiert_am: new Date().toISOString() }
     for (const t of ['rooms', 'room_elements', 'tables', 'layouts', 'guests', 'reservations', 'day_rules']) {
-      const { data, error } = await supabase.from(t).select('*').eq('team_id', team.id).limit(100000)
-      if (error) return setErr(error.message)
-      out[t] = data
+      const rows: unknown[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from(t).select('*').eq('team_id', team.id).range(from, from + 999)
+        if (error) return setErr(error.message)
+        rows.push(...data)
+        if (data.length < 1000) break
+      }
+      out[t] = rows
     }
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }))
