@@ -5,14 +5,21 @@ import Timeline from './Timeline'
 import Members from './Members'
 import { isoDay } from './booking'
 
+/** Letzte Ansicht merken, damit ein Neuladen auf derselben Seite bleibt. */
+export function mem(k: string, v?: string) {
+  try { if (v === undefined) return localStorage.getItem('ph-' + k); localStorage.setItem('ph-' + k, v) } catch { /* Speicher gesperrt */ }
+  return null
+}
+
 export default function Team({ team, onBack }: { team: TeamT; onBack: () => void }) {
-  const [view, setView] = useState<'tl' | 'plan'>('tl')
+  const [view, setView] = useState<'tl' | 'plan'>(() => (mem('view') === 'plan' ? 'plan' : 'tl'))
   const [day, setDay] = useState(isoDay(new Date()))
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [people, setPeople] = useState(false)
+  const [people, setPeople] = useState(() => mem('people') === '1' && team.role === 'admin')
+  useEffect(() => { mem('view', view); mem('people', people ? '1' : '0') }, [view, people])
   const [embedBg, setEmbedBg] = useState('')
   const [err, setErr] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
