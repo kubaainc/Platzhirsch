@@ -61,6 +61,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   const [selEl, setSelEl] = useState<string | null>(null)
   const [guide, setGuide] = useState<Guide>({})
   const [msg, setMsg] = useState('')
+  useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 5000); return () => clearTimeout(t) }, [msg])
   const [err, setErr] = useState('')
   const [preName, setPreName] = useState('')
   const [shape, setShape] = useState(false)
@@ -304,11 +305,6 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
       {!room ? <p>Noch kein Bereich angelegt.</p> : (
         <>
           {roomClosed(room, day) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
-          <p className="legend">
-            <span><i className="sw" />Online reservierbar</span>
-            <span><i className="sw black" />Nicht online</span>
-            <span>{roomTables.length} Tische · {roomTables.reduce((s, t) => s + t.max_seats, 0)} Plätze</span>
-          </p>
           {!edit && (
             <div className="occ">
               <label className="inl"><input type="checkbox" checked={occ} onChange={e => setOcc(e.target.checked)} />Belegung anzeigen</label>
@@ -390,13 +386,22 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
               <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
             </>
           )}
-          {canEdit && (
-            <div className="acts planedit">
-              {edit
-                ? <><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></>
-                : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>}
-            </div>
-          )}
+          <div className="planrow">
+            <p className="legend">
+              <span><i className="sw" />Online reservierbar</span>
+              <span><i className="sw black" />Nicht online</span>
+              <span>{roomTables.length} Tische · {roomTables.reduce((s, t) => s + t.max_seats, 0)} Plätze</span>
+            </p>
+            <span className="grow" />
+            {msg && <span className="toast" role="status">{msg}</span>}
+            {canEdit && (
+              <div className="acts">
+                {edit
+                  ? <><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></>
+                  : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>}
+              </div>
+            )}
+          </div>
           {edit && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
           {edit && !selected && !selEl && <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
           <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, day) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
@@ -466,7 +471,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
       )}
       {book && room && <PlanBook team={team} rooms={rooms} tables={tables} roomId={roomId} table={book.table} day={day} start={occ ? occStart : 1140}
         onClose={() => setBook(null)} onSaved={() => { setBook(null); setMsg('Reservierung gespeichert'); loadOcc() }} />}
-      <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
+      <div aria-live="polite">{err && <p className="err" role="alert">{err}</p>}</div>
     </>
   )
 }

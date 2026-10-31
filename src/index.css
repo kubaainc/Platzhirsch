@@ -285,4 +285,4 @@ dialog{max-height:calc(100dvh - 24px);overflow:auto}
 .tb .tfill{position:absolute;left:50%;top:50%;pointer-events:none}
 .tb span{position:relative}
 
-.planedit{justify-content:flex-end;margin:0 0 8px}
+.planrow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:8px 0}.planrow .legend,.planrow .acts{margin:0;padding:0}.planrow .grow{flex:1}
