@@ -54,7 +54,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'guests' } | { kind: 'tables' }>(null)
   const [note, setNote] = useState('')
   const drag = useRef<{ id: string; x0: number; y0: number; moved: boolean } | null>(null)
-  const [off, setOff] = useState<{ id: string; dx: number; dy: number } | null>(null)
+  const [off, setOff] = useState<{ id: string; dx: number; dy: number; table: string; ok: boolean } | null>(null)
 
   useEffect(() => {
     (async () => {
@@ -90,6 +90,16 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   const seats = rows.reduce((s, t) => s + t.max_seats, 0)
   const blocked = !!rule?.blocked
   const open = (v: NewRes) => { if (blocked) return setMsg('Dieser Tag ist gesperrt. Entsperre ihn, um zu reservieren.'); setDlg({ kind: 'new', v }) }
+
+  /** Einrasten: Zeit im Raster, Zeile unter dem Finger. */
+  function snap(e: { clientX: number; clientY: number }, r: Reservation, d: { x0: number }, track: HTMLElement) {
+    const rc = track.getBoundingClientRect()
+    const start = Math.max(hours.from, Math.min(hours.to - slot, r.start_min + Math.round(((e.clientX - d.x0) / rc.width) * span / slot) * slot))
+    const row = document.elementsFromPoint(e.clientX, e.clientY).find(x => (x as HTMLElement).dataset.table) as HTMLElement | undefined
+    const table = row?.dataset.table ?? r.table_id!
+    const dy = (row ?? track).getBoundingClientRect().top - rc.top
+    return { start, table, dx: ((start - r.start_min) / span) * rc.width, dy, ok: !tableBusy(table, start, r.duration_min, res, r.id) }
+  }
 
   async function moveRes(r: Reservation, tableId: string, start: number) {
     const nt = tables.find(x => x.id === tableId)
@@ -159,7 +169,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
         {rows.map(t => (
           <div className="tl-row" role="row" key={t.id}>
             <div className="tl-lab" role="rowheader"><b>{t.label}</b><span className="soft">{t.min_seats}–{t.max_seats}p{!t.online_bookable && <i className="sw black" title="Nur Team" />}</span></div>
-            <div className="tl-track" data-table={t.id} onClick={e => {
+            <div className={`tl-track${off?.table === t.id ? (off.ok ? ' tgt' : ' tgt bad') : ''}`} data-table={t.id} onClick={e => {
               if (!canWrite || (e.target as HTMLElement).closest('.rbar')) return
               const rc = e.currentTarget.getBoundingClientRect()
               const m = hours.from + Math.floor(((e.clientX - rc.left) / rc.width) * span / slot) * slot
@@ -174,18 +184,17 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
                   onPointerDown={e => { if (!canWrite || reserve || e.button > 0) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: r.id, x0: e.clientX, y0: e.clientY, moved: false } }}
                   onPointerMove={e => {
                     const d = drag.current; if (!d || d.id !== r.id) return
-                    const dx = e.clientX - d.x0, dy = e.clientY - d.y0
-                    if (!d.moved && Math.hypot(dx, dy) < 6) return
-                    d.moved = true; setOff({ id: r.id, dx, dy })
+                    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return
+                    d.moved = true
+                    const n = snap(e, r, d, e.currentTarget.parentElement!)
+                    setOff({ id: r.id, dx: n.dx, dy: n.dy, table: n.table, ok: n.ok })
                   }}
                   onPointerUp={e => {
                     const d = drag.current; if (!d || d.id !== r.id) return
                     setOff(null)
                     if (!d.moved) { drag.current = null; return }
-                    const w = e.currentTarget.parentElement!.getBoundingClientRect().width
-                    const start = Math.max(hours.from, Math.min(hours.to - slot, r.start_min + Math.round(((e.clientX - d.x0) / w) * span / slot) * slot))
-                    const row = document.elementsFromPoint(e.clientX, e.clientY).find(x => (x as HTMLElement).dataset.table) as HTMLElement | undefined
-                    moveRes(r, row?.dataset.table ?? r.table_id!, start)
+                    const n = snap(e, r, d, e.currentTarget.parentElement!)
+                    moveRes(r, n.table, n.start)
                     setTimeout(() => { drag.current = null }, 0)
                   }}
                   onPointerCancel={() => { drag.current = null; setOff(null) }}
