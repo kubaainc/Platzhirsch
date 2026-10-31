@@ -82,7 +82,6 @@ function Teams({ session }: { session: Session }) {
         <button type="submit">Team anlegen</button>
         {err && <p className="err" role="alert">{err}</p>}
       </form>
-      <p><button className="ghost" onClick={() => supabase.auth.signOut()}>Abmelden</button></p>
     </main>
   )
 }
@@ -95,5 +94,10 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
   if (session === undefined) return null
-  return session ? <Teams session={session} /> : <Login />
+  return session ? (
+    <>
+      <header className="topbar"><b>Platzhirsch</b><span>{session.user.email}</span><button onClick={() => supabase.auth.signOut()}>Abmelden</button></header>
+      <Teams session={session} />
+    </>
+  ) : <Login />
 }

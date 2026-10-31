@@ -39,51 +39,63 @@ export default function Public({ slug }: { slug: string }) {
     setDone({ day, start, party })
   }
 
-  if (info === undefined) return <main><p>Lade …</p></main>
-  if (info === null) return <main><p>Dieses Restaurant gibt es nicht.</p></main>
+  if (info === undefined) return <main className="gast"><p>Lade …</p></main>
+  if (info === null) return <main className="gast"><p>Dieses Restaurant gibt es nicht.</p></main>
   if (done) return (
-    <main>
+    <main className="gast">
+      <p className="kicker">Reservierung</p>
       <h1>{info.name}</h1>
-      <p><b>Danke, wir haben deine Reservierung.</b></p>
-      <p>{dayLabel(done.day)}, {hm(done.start)} Uhr, {done.party} {done.party === 1 ? 'Person' : 'Personen'}.</p>
+      <p className="note good"><b>Danke, wir haben deine Reservierung.</b><br />{dayLabel(done.day)}, {hm(done.start)} Uhr, {done.party} {done.party === 1 ? 'Person' : 'Personen'}.</p>
     </main>
   )
   const anyFree = slots.some(s => s.free)
   return (
-    <main>
+    <main className="gast">
+      <p className="kicker">Reservieren</p>
       <h1>{info.name}</h1>
-      <h2>Tisch reservieren</h2>
       <form onSubmit={book}>
-        <label>Datum<input type="date" value={day} min={isoDay(new Date())} max={addDays(isoDay(new Date()), 180)} onChange={e => e.target.value && setDay(e.target.value)} /></label>
-        <label>Personen<input type="number" min={1} max={30} value={party} onChange={e => setParty(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} /></label>
-        {info.rooms.length > 1 && (
-          <label>Bereich
-            <select value={room} onChange={e => setRoom(e.target.value)}>
-              <option value="">Egal</option>
-              {info.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </label>
-        )}
-        <div role="group" aria-label="Uhrzeit" className="slots">
-          {slots.map(s => (
-            <button type="button" key={s.start_min} disabled={!s.free} aria-pressed={start === s.start_min} onClick={() => setStart(s.start_min)}>
-              {hm(s.start_min)}<small>{s.free ? `${s.pct} % belegt` : 'belegt'}</small>
-            </button>
-          ))}
-        </div>
-        {!anyFree && <p>Online ist an diesem Tag nichts frei. Online buchst du mindestens 24 Stunden vorher, kurzfristig bitte telefonisch.</p>}
+        <section className="step">
+          <div className="step-h"><h2><i>1</i>Datum und Personen</h2></div>
+          <label>Datum<input type="date" value={day} min={isoDay(new Date())} max={addDays(isoDay(new Date()), 180)} onChange={e => e.target.value && setDay(e.target.value)} /></label>
+          <div className="pers" role="group" aria-label="Personen">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <button type="button" key={n} aria-pressed={party === n} onClick={() => setParty(n)}>{n}</button>)}
+          </div>
+          <label>Andere Personenzahl<input type="number" min={1} max={30} value={party} onChange={e => setParty(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} /></label>
+          {info.rooms.length > 1 && (
+            <label>Bereich
+              <select value={room} onChange={e => setRoom(e.target.value)}>
+                <option value="">Egal</option>
+                {info.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </label>
+          )}
+        </section>
+        <section className="step">
+          <div className="step-h"><h2><i>2</i>Uhrzeit</h2><span>{dayLabel(day)}</span></div>
+          <div role="group" aria-label="Uhrzeit" className="slotlist">
+            {slots.map(s => (
+              <button type="button" key={s.start_min} className="slot" disabled={!s.free} aria-pressed={start === s.start_min} onClick={() => setStart(s.start_min)}>
+                <b>{hm(s.start_min)}</b>
+                <span className="meter"><i className={s.pct >= 80 ? 'hot' : ''} style={{ width: `${s.pct}%` }} /></span>
+                <span className="st">{s.free ? `${s.pct} % belegt` : 'Nicht verfügbar'}</span>
+              </button>
+            ))}
+          </div>
+          {!anyFree && <p className="note warn">Online ist an diesem Tag nichts frei. Online buchst du mindestens 24 Stunden vorher, kurzfristig bitte telefonisch.</p>}
+        </section>
         {start !== null && (
-          <>
+          <section className="step">
+            <div className="step-h"><h2><i>3</i>Deine Daten</h2></div>
             <label>Name<input required minLength={2} maxLength={80} autoComplete="name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
             <label>Telefon<input type="tel" maxLength={30} autoComplete="tel" value={f.phone} onChange={e => setF({ ...f, phone: e.target.value })} /></label>
             <label>E-Mail<input type="email" maxLength={120} autoComplete="email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} /></label>
             <label>Anmerkung (optional)<input maxLength={500} value={f.note} onChange={e => setF({ ...f, note: e.target.value })} /></label>
             <input className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.hp} onChange={e => setF({ ...f, hp: e.target.value })} />
-            <p><small>Bitte Telefon oder E-Mail angeben.</small></p>
+            <p className="soft">Bitte Telefon oder E-Mail angeben.</p>
             <button type="submit" disabled={busy || (!f.phone.trim() && !f.email.trim())}>Reservieren</button>
-          </>
+          </section>
         )}
-        {err && <p className="err" role="alert">{err}</p>}
+        {err && <p className="note warn" role="alert">{err}</p>}
       </form>
     </main>
   )
