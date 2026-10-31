@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type Team } from './supabase'
-import TeamView from './Team'
+import TeamView, { mem } from './Team'
 import { LOOKS, getLook, setLook, type Look } from './look'
 
 const slugify = (s: string) =>
@@ -54,9 +54,10 @@ function Teams({ session }: { session: Session }) {
       .select('role, teams(id, slug, name)')
       .eq('user_id', session.user.id)
     if (error) return setErr(error.message)
-    setTeams(
-      (data as unknown as { role: Team['role']; teams: Omit<Team, 'role'> }[]).map(m => ({ ...m.teams, role: m.role })),
-    )
+    const list = (data as unknown as { role: Team['role']; teams: Omit<Team, 'role'> }[]).map(m => ({ ...m.teams, role: m.role }))
+    setTeams(list)
+    const last = mem('team')
+    if (last) setOpen(o => o ?? list.find(t => t.id === last) ?? null)
   }
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -69,7 +70,8 @@ function Teams({ session }: { session: Session }) {
     load()
   }
 
-  if (open) return <TeamView team={open} onBack={() => setOpen(null)} />
+  useEffect(() => { if (open) mem('team', open.id) }, [open])
+  if (open) return <TeamView team={open} onBack={() => { mem('team', ''); setOpen(null) }} />
 
   return (
     <main>
