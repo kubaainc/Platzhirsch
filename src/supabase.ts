@@ -15,3 +15,5 @@ export type TableRow = {
   online_bookable: boolean; placed: boolean
   x: number | null; y: number | null; w: number | null; h: number | null; rot: number; round: boolean
 }
+export type LayoutTable = Pick<TableRow, 'id' | 'label' | 'min_seats' | 'max_seats' | 'online_bookable' | 'placed' | 'x' | 'y' | 'w' | 'h' | 'rot' | 'round'>
+export type Layout = { id: string; name: string; data: LayoutTable[] }
