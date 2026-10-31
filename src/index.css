@@ -107,3 +107,11 @@ button.danger{background:var(--rot)}
 select{font:inherit;padding:10px 12px;min-height:44px;border:1px solid var(--line);background:var(--surface)}
 textarea{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--surface)}
 .rules{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+
+.occ{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.occ input[type=date],.occ input[type=time]{min-height:36px;padding:4px 8px}
+label.inl{display:inline-flex;grid-auto-flow:column;align-items:center;gap:6px}
+label.inl input{min-height:0}
+.tb.busy{background:color-mix(in srgb,var(--c-busy,#9A3334) 25%,#fff);border-color:var(--c-busy,#9A3334)}
+.tb.dim{opacity:.12}
+.tb.black.busy{background:#161614;outline:2px solid var(--c-busy,#9A3334)}
