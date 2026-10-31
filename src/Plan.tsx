@@ -45,7 +45,7 @@ function snapTo(t: TableRow, x: number, y: number, others: TableRow[], th: numbe
   return { x, y, guide: gx }
 }
 
-export default function Plan({ team }: { team: Team }) {
+export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: boolean) => void }) {
   const canEdit = team.role === 'admin' || team.role === 'editor'
   const [rooms, setRooms] = useState<Room[]>([])
   const [elements, setElements] = useState<RoomElement[]>([])
@@ -55,6 +55,7 @@ export default function Plan({ team }: { team: Team }) {
   const [ready, setReady] = useState(false)
   const [roomId, setRoomId] = useState('')
   const [edit, setEdit] = useState(false)
+  useEffect(() => { onEditing(edit); return () => onEditing(false) }, [edit, onEditing])
   const [sel, setSel] = useState<string | null>(null)
   const [selEl, setSelEl] = useState<string | null>(null)
   const [guide, setGuide] = useState<Guide>({})

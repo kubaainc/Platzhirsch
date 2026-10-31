@@ -22,10 +22,11 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
   )
 }
 
-export default function Timeline({ team }: { team: Team }) {
+export default function Timeline({ team, onEditing }: { team: Team; onEditing: (e: boolean) => void }) {
   const canWrite = team.role !== 'viewer'
   const canManage = team.role === 'admin' || team.role === 'editor'
   const [manage, setManage] = useState(false)
+  useEffect(() => { onEditing(manage); return () => onEditing(false) }, [manage, onEditing])
   const [day, setDay] = useState(isoDay(new Date()))
   const [rooms, setRooms] = useState<Room[]>([])
   const [tables, setTables] = useState<TableRow[]>([])
