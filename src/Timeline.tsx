@@ -355,6 +355,7 @@ export function NewReservation(p: {
   const chosen = tableId === 'auto' ? auto : p.tables.find(t => t.id === tableId) ?? null
   const reserve = chosen ? findReserve(opts, chosen) : null
   const hasRoom = chosen && chosen.min_seats <= party && party <= chosen.max_seats
+  const chosenBusy = !!chosen && tableBusy(chosen.id, start, STAY, p.res)
   const alts = useMemo(() => (auto ? [] : suggest(opts, p.hours.from, p.hours.to)), [auto, start, party, rid, p.res]) // eslint-disable-line react-hooks/exhaustive-deps
   const times: number[] = []; for (let m = p.hours.from; m < p.hours.to; m += p.slot) times.push(m)
   const state = (t: TableRow) => tableBusy(t.id, start, STAY, p.res) ? 'belegt' : party < t.min_seats || party > t.max_seats ? 'passt nicht' : ''
@@ -398,19 +399,20 @@ export function NewReservation(p: {
         <label style={{ gridColumn: '1/-1' }}>Tisch
           <select value={tableId} onChange={e => setTableId(e.target.value)}>
             <option value="auto">Automatisch{auto ? ` (${auto.label})` : ''}</option>
-            {roomTables.map(t => <option key={t.id} value={t.id} disabled={state(t) === 'belegt' && t.id !== tableId}>{t.label} · {t.min_seats}–{t.max_seats}p{t.online_bookable ? '' : ' · nur Team'}{state(t) && ` · ${state(t)}`}</option>)}
+            {roomTables.map(t => <option key={t.id} value={t.id} disabled={state(t) === 'belegt'}>{t.label} · {t.min_seats}–{t.max_seats}p{t.online_bookable ? '' : ' · nur Team'}{state(t) && ` · ${state(t)}`}</option>)}
           </select>
         </label>
         <label style={{ gridColumn: '1/-1' }}>Notiz<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <div style={{ gridColumn: '1/-1' }} aria-live="polite">
-          {chosen && hasRoom && <p className="ok">Tisch {chosen.label}{reserve ? `, Wetter-Reserve draußen: ${reserve.label}` : p.rooms.find(r => r.id === chosen.room_id)?.outdoor ? '' : ', draußen ist gerade kein Tisch als Reserve frei'}.</p>}
+          {chosen && chosenBusy && <p className="err">{chosen.label} ist um {hm(start)} Uhr belegt. Wähle einen anderen Tisch, eine andere Uhrzeit oder „Automatisch“.</p>}
+          {chosen && hasRoom && !chosenBusy && <p className="ok">Tisch {chosen.label}{reserve ? `, Wetter-Reserve draußen: ${reserve.label}` : p.rooms.find(r => r.id === chosen.room_id)?.outdoor ? '' : ', draußen ist gerade kein Tisch als Reserve frei'}.</p>}
           {p.blocked && <p className="err">Dieser Tag ist gesperrt, es sind keine Reservierungen möglich.</p>}
           {!chosen && <p className="err">Zu dieser Zeit ist im Bereich kein passender Tisch frei.</p>}
           {!auto && alts.length > 0 && <p>Besser: {alts.map(a => <button type="button" className="ghost sm" key={a.start} onClick={() => setStart(a.start)}>{hm(a.start)} Uhr ({a.table.label})</button>)}</p>}
           {!auto && alts.length === 0 && <p className="soft">Keine freie Alternative in den Öffnungszeiten. Prüfe die anderen Bereiche; das Team kann auch schwarze Tische von Hand vergeben.</p>}
         </div>
         {err && <p className="err" role="alert" style={{ gridColumn: '1/-1' }}>{err}</p>}
-        <div className="acts" style={{ gridColumn: '1/-1' }}><button type="submit" disabled={busy}>Reservieren</button><button type="button" className="ghost" onClick={p.onClose}>Abbrechen</button></div>
+        <div className="acts" style={{ gridColumn: '1/-1' }}><button type="submit" disabled={busy || chosenBusy}>Reservieren</button><button type="button" className="ghost" onClick={p.onClose}>Abbrechen</button></div>
       </form>
     </Modal>
   )
