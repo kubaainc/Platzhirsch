@@ -4,7 +4,7 @@ import { addDays, dayLabel, hm, isoDay } from './booking'
 
 type Info = { name: string; rooms: { id: string; name: string }[] }
 type Slot = { start_min: number; free: boolean; pct: number }
-type Done = { day: string; start: number; party: number; name: string; room: string }
+type Done = { day: string; start: number; party: number; name: string; room: string; token: string }
 
 const OCCASIONS = ['Geburtstag', 'Jahrestag', 'Geschäftlich', 'Date']
 const DAYS = 14
@@ -57,13 +57,13 @@ export default function Public({ slug }: { slug: string }) {
     if (!f.phone.trim() && !f.email.trim()) return setErr('Bitte Telefon oder E-Mail angeben, damit wir dich erreichen.')
     setBusy(true); setErr('')
     const note = [occasion && `Anlass: ${occasion}`, f.note.trim()].filter(Boolean).join(' · ')
-    const { error } = await supabase.rpc('public_book', {
+    const { data, error } = await supabase.rpc('public_book', {
       p_slug: slug, p_day: day, p_start: start, p_party: party, p_room: room || null,
       p_name: f.name, p_phone: f.phone, p_email: f.email, p_note: note,
     })
     setBusy(false)
     if (error) return setErr(error.message)
-    setDone({ day, start, party, name: f.name.trim(), room: info?.rooms.find(r => r.id === room)?.name ?? '' })
+    setDone({ day, start, party, name: f.name.trim(), room: info?.rooms.find(r => r.id === room)?.name ?? '', token: (data as { token: string }).token })
     setStep(3)
   }
   function again() {
@@ -184,7 +184,7 @@ export default function Public({ slug }: { slug: string }) {
               {done.room && <><dt>Bereich</dt><dd>{done.room}</dd></>}
               <dt>Auf den Namen</dt><dd>{done.name}</dd>
             </dl>
-            <p className="g-soft">Dein Tisch ist 2 Stunden für dich reserviert. Änderungen oder Absagen bitte direkt im Restaurant.</p>
+            <p className="g-soft">Dein Tisch ist 2 Stunden für dich reserviert. Stornieren geht bis 24 Stunden vorher über <a href={`/s/${done.token}`} target="_blank" rel="noreferrer">diesen Link</a>. Bitte speichere ihn. Sonst bitte direkt im Restaurant melden.</p>
             <div className="g-foot"><span /><button type="button" className="ghost" onClick={again}>Weitere Reservierung</button></div>
           </div>
         )}

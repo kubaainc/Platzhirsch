@@ -2,5 +2,6 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/b/:slug", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/b/:slug", "destination": "/index.html" },
+    { "source": "/s/:token", "destination": "/index.html" }]
 }
