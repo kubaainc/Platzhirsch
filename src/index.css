@@ -277,3 +277,4 @@ dialog{max-height:calc(100dvh - 24px);overflow:auto}
 .rbar.drag{transition:transform .08s ease-out}
 .tl-track.tgt{background:color-mix(in srgb,var(--rot) 12%,var(--surface));outline:2px solid var(--rot);outline-offset:-2px;z-index:1}
 .tl-track.tgt.bad{background:color-mix(in srgb,var(--err) 12%,var(--surface));outline-color:var(--err)}
+.daybar > button:last-child{margin-left:auto}
