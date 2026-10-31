@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEven
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { DayHeader, DEFAULT_HOURS, NewReservation, useDayRule } from './Timeline'
 import { supabase, type DayRule, type Guest, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
-import { roomClosed, tableBusy } from './booking'
+import { joinedGroups, roomClosed, tableBusy } from './booking'
 
 const FORMS: [string, string, number, number, boolean][] = [
   ['quadrat', 'Quadrat', 70, 70, false],
@@ -226,7 +226,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
     setTables(ts => [...ts, data as TableRow]); setOrig(o => [...o, data as TableRow]); setSel((data as TableRow).id); setSelEl(null)
   }
   async function delTable(t: TableRow) {
-    const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${t.id},alt_table_id.eq.${t.id}`)
+    const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${t.id},alt_table_id.eq.${t.id},extra_table_ids.cs.{${t.id}}`)
     if (count) return setErr(`Tisch ${t.label} hat Reservierungen. Bitte erst verschieben oder stornieren.`)
     const { error } = await supabase.from('tables').delete().eq('id', t.id)
     if (error) return setErr(error.message)
@@ -277,7 +277,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   /** Tisch von links nach rechts als Zeitachse: rot dort, wo er am Abend reserviert ist. */
   const timeFill = (t: TableRow) => {
     const span = hours.to - hours.from
-    const segs = dayRes.filter(r => r.table_id === t.id).sort((a, b) => a.start_min - b.start_min)
+    const segs = dayRes.filter(r => r.table_id === t.id || (r.extra_table_ids ?? []).includes(t.id)).sort((a, b) => a.start_min - b.start_min)
       .map(r => [Math.max(0, ((r.start_min - hours.from) / span) * 100) + 1.2, Math.min(100, ((r.start_min + r.duration_min - hours.from) / span) * 100) - 1.2])
     if (!segs.length) return undefined
     const base = t.online_bookable ? 'color-mix(in srgb, var(--c-free,#2f7d4f) 14%, var(--surface))' : '#161614'
@@ -416,6 +416,14 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
               <div key={x.id} className={`el${x.id === selEl && edit ? ' sel' : ''}`} onPointerDown={e => startDragEl(e, x)}
                 style={{ left: `${(x.x! / room.width) * 100}%`, top: `${(x.y! / room.height) * 100}%`, width: `${(x.w! / room.width) * 100}%`, height: `${(x.h! / room.height) * 100}%`, transform: `translate(-50%,-50%) rotate(${x.rot}deg)` }} />
             ))}
+            {(() => {
+              const { frames, links } = joinedGroups(roomTables)
+              const px = (v: number, of: number) => `${(v / of) * 100}%`
+              return <>
+                {frames.map((f, i) => <div key={'f' + i} className="combo" style={{ left: px(f.x0 - 6, room.width), top: px(f.y0 - 6, room.height), width: px(f.x1 - f.x0 + 12, room.width), height: px(f.y1 - f.y0 + 12, room.height) }} />)}
+                {links.map((l, i) => <i key={'l' + i} className="link" style={{ left: px(l.x, room.width), top: px(l.y, room.height) }} />)}
+              </>
+            })()}
             {roomTables.filter(t => t.placed).map(t => (
               <div
                 key={t.id}

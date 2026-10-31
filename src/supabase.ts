@@ -20,7 +20,7 @@ export type Layout = { id: string; name: string; data: LayoutTable[] }
 
 export type Guest = { id: string; team_id: string; name: string; phone: string | null; email: string | null }
 export type Reservation = {
-  id: string; team_id: string; guest_id: string | null; table_id: string | null; alt_table_id: string | null
+  id: string; team_id: string; guest_id: string | null; table_id: string | null; alt_table_id: string | null; extra_table_ids?: string[]
   day: string; start_min: number; duration_min: number; party: number; source: string; note: string | null
 }
 export type DayRule = { team_id: string; day: string; blocked: boolean; note: string | null }

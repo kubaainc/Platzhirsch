@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
-import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, roomClosed, suggest, tableBusy } from './booking'
+import { addDays, dayLabel, findCombo, findReserve, findTable, groupLabel, groupSeats, guestsAt, hm, isoDay, joined, matchGuest, roomClosed, suggest, tableBusy, usesTable } from './booking'
 
 export const DEFAULT_HOURS = { from: 1080, to: 1380 }
 const STAY = 120
@@ -209,12 +209,13 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
               open({ table: t.id, start: Math.max(hours.from, Math.min(hours.to - slot, m)) })
             }}>
               {Array.from({ length: Math.ceil(span / slot) }, (_, i) => hours.from + i * slot).map(m => <i key={m} className={`grid${(m - hours.from) % 60 ? ' sub' : ''}`} style={{ left: `${((m - hours.from) / span) * 100}%` }} />)}
-              {res.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => {
-                const reserve = r.table_id !== t.id
+              {res.filter(r => usesTable(r, t.id)).map(r => {
+                const linked = (r.extra_table_ids ?? []).includes(t.id)
+                const reserve = r.table_id !== t.id && !linked
                 const dragging = off?.id === r.id
                 return <button key={r.id} className={`rbar${reserve ? ' reserve' : ''}${dragging ? ' drag' : ''}`}
                   onClick={() => { if (drag.current?.moved) { drag.current = null; return } setDlg({ kind: 'res', id: r.id }) }}
-                  onPointerDown={e => { if (!canWrite || reserve || e.button > 0) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: r.id, x0: e.clientX, y0: e.clientY, moved: false } }}
+                  onPointerDown={e => { if (!canWrite || reserve || linked || (r.extra_table_ids ?? []).length > 0 || e.button > 0) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: r.id, x0: e.clientX, y0: e.clientY, moved: false } }}
                   onPointerMove={e => {
                     const d = drag.current; if (!d || d.id !== r.id) return
                     if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return
@@ -233,7 +234,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
                   onPointerCancel={() => { drag.current = null; setOff(null) }}
                   style={{ left: `${((r.start_min - hours.from) / span) * 100}%`, width: `${(r.duration_min / span) * 100}%`, ...(dragging ? { transform: `translate(${off.dx}px, ${off.dy}px)` } : {}) }}
                   aria-label={`${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}, ${r.party} Personen, ${hm(r.start_min)} Uhr${reserve ? ', Wetter-Reserve' : ''}`}>
-                  {reserve ? 'Reserve' : `${r.party}p · ${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}`}
+                  {reserve ? 'Reserve' : `${r.party}p · ${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}${(r.extra_table_ids ?? []).length ? ` · mit ${(r.extra_table_ids ?? []).map(id => tables.find(x => x.id === id)?.label).join(', ')}` : ''}`}
                 </button>
               })}
             </div>
@@ -261,6 +262,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
 
 function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, onSaved }: { r: Reservation; guest?: Guest; tables: TableRow[]; rooms: Room[]; res: Reservation[]; canWrite: boolean; onClose: () => void; onDelete: () => void; onSaved: () => void }) {
   const t = tables.find(x => x.id === r.table_id), alt = tables.find(x => x.id === r.alt_table_id)
+  const extras = (r.extra_table_ids ?? []).map(id => tables.find(x => x.id === id)).filter((x): x is TableRow => !!x)
   const [edit, setEdit] = useState(false)
   const [start, setStart] = useState(hm(r.start_min))
   const [party, setParty] = useState(r.party)
@@ -275,8 +277,11 @@ function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, 
     if (party < 1) return setErr('Mindestens 1 Person.')
     const o = { tables, rooms, res, roomId: nt.room_id, start: s0, dur: r.duration_min, party, manual: true, ignore: r.id, day: r.day }
     if (tableBusy(nt.id, s0, r.duration_min, res, r.id)) return setErr(`${nt.label} ist zu dieser Zeit belegt.`)
+    const keep = nt.id === r.table_id ? extras : []
+    const busyX = keep.find(x => tableBusy(x.id, s0, r.duration_min, res, r.id))
+    if (busyX) return setErr(`${busyX.label} ist zu dieser Zeit belegt.`)
     const reserve = findReserve(o, nt)
-    const { error } = await supabase.from('reservations').update({ table_id: nt.id, alt_table_id: reserve?.id ?? null, start_min: s0, party, note: note.trim() || null }).eq('id', r.id)
+    const { error } = await supabase.from('reservations').update({ table_id: nt.id, alt_table_id: reserve?.id ?? null, start_min: s0, party, note: note.trim() || null, ...(extras.length ? { extra_table_ids: keep.map(x => x.id) } : {}) }).eq('id', r.id)
     if (error) return setErr(error.message)
     onSaved()
   }
@@ -301,7 +306,7 @@ function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, 
       <dl className="kv">
         <dt>Zeit</dt><dd>{hm(r.start_min)}–{hm(r.start_min + r.duration_min)} Uhr</dd>
         <dt>Personen</dt><dd>{r.party}</dd>
-        <dt>Tisch</dt><dd>{t?.label ?? '–'}{alt && <span className="soft"> · Wetter-Reserve {alt.label}</span>}</dd>
+        <dt>Tisch</dt><dd>{t ? groupLabel([t, ...extras]) : '–'}{alt && <span className="soft"> · Wetter-Reserve {alt.label}</span>}</dd>
         {guest?.phone && <><dt>Telefon</dt><dd>{guest.phone}</dd></>}
         {guest?.email && <><dt>E-Mail</dt><dd>{guest.email}</dd></>}
         {r.note && <><dt>Notiz</dt><dd>{r.note}</dd></>}
@@ -351,11 +356,17 @@ export function NewReservation(p: {
     if (n) setNote(n)
   }
   const opts = { tables: p.tables, rooms: p.rooms, res: p.res, roomId: rid, start, dur: STAY, party, manual: true, day: p.day }
-  const auto = useMemo(() => findTable(opts), [p.tables, p.res, rid, start, party]) // eslint-disable-line react-hooks/exhaustive-deps
-  const chosen = tableId === 'auto' ? auto : p.tables.find(t => t.id === tableId) ?? null
+  const autoG = useMemo(() => { const t = findTable(opts); return t ? [t] : findCombo(opts) }, [p.tables, p.res, rid, start, party]) // eslint-disable-line react-hooks/exhaustive-deps
+  const auto = autoG?.[0] ?? null
+  const pairs = useMemo(() => p.tables.filter(t => t.room_id === rid).flatMap((a, i, all) => all.slice(i + 1).filter(b => joined(a, b)).map(b => [a, b].sort((x, y) => x.label.localeCompare(y.label, 'de', { numeric: true })))), [p.tables, rid])
+  const chosenG = tableId === 'auto' ? autoG
+    : tableId.startsWith('g:') ? tableId.slice(2).split(',').map(id => p.tables.find(t => t.id === id)).filter((x): x is TableRow => !!x)
+    : p.tables.filter(t => t.id === tableId)
+  const chosen = chosenG?.[0] ?? null
+  const combo = (chosenG?.length ?? 0) > 1
   const reserve = chosen ? findReserve(opts, chosen) : null
-  const hasRoom = chosen && chosen.min_seats <= party && party <= chosen.max_seats
-  const chosenBusy = !!chosen && tableBusy(chosen.id, start, STAY, p.res)
+  const hasRoom = chosen && chosenG && (combo ? party <= groupSeats(chosenG) : chosen.min_seats <= party && party <= chosen.max_seats)
+  const chosenBusy = !!chosenG && chosenG.some(t => tableBusy(t.id, start, STAY, p.res))
   const alts = useMemo(() => (auto ? [] : suggest(opts, p.hours.from, p.hours.to)), [auto, start, party, rid, p.res]) // eslint-disable-line react-hooks/exhaustive-deps
   const times: number[] = []; for (let m = p.hours.from; m < p.hours.to; m += p.slot) times.push(m)
   const state = (t: TableRow) => tableBusy(t.id, start, STAY, p.res) ? 'belegt' : party < t.min_seats || party > t.max_seats ? 'passt nicht' : ''
@@ -366,9 +377,8 @@ export function NewReservation(p: {
     setErr('')
     if (p.blocked) return setErr('Dieser Tag ist gesperrt. Entsperre ihn in der Zeitleiste, um zu reservieren.')
     if (!chosen) return setErr('Kein passender Tisch frei. Wähle eine andere Zeit oder einen anderen Bereich.')
-    if (!hasRoom) return setErr(`Tisch ${chosen.label} fasst ${chosen.min_seats}–${chosen.max_seats} Personen.`)
-    if (tableId !== 'auto' && findTable({ ...opts, roomId: chosen.room_id })?.id !== chosen.id && p.res.some(r => (r.table_id === chosen.id || r.alt_table_id === chosen.id) && r.start_min < start + STAY && start < r.start_min + r.duration_min))
-      return setErr(`Tisch ${chosen.label} ist zu dieser Zeit belegt.`)
+    if (!hasRoom) return setErr(combo ? `${groupLabel(chosenG!)} fasst höchstens ${groupSeats(chosenG!)} Personen.` : `Tisch ${chosen.label} fasst ${chosen.min_seats}–${chosen.max_seats} Personen.`)
+    if (chosenBusy) return setErr(`${groupLabel(chosenG!)} ist zu dieser Zeit belegt.`)
     setBusy(true)
     let guest: Guest | undefined = matched ?? picked ?? undefined
     if (!guest) {
@@ -377,7 +387,7 @@ export function NewReservation(p: {
       guest = data as Guest
     }
     const { error } = await supabase.from('reservations').insert({
-      team_id: p.team.id, guest_id: guest.id, table_id: chosen.id, alt_table_id: reserve?.id ?? null,
+      team_id: p.team.id, guest_id: guest.id, table_id: chosen.id, alt_table_id: reserve?.id ?? null, ...(combo ? { extra_table_ids: chosenG!.slice(1).map(t => t.id) } : {}),
       day: p.day, start_min: start, duration_min: STAY, party, source: 'team', note: note.trim() || null,
     })
     setBusy(false)
@@ -398,14 +408,15 @@ export function NewReservation(p: {
         <label>Bereich<select value={rid} onChange={e => { setRid(e.target.value); setTableId('auto') }}>{p.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
         <label style={{ gridColumn: '1/-1' }}>Tisch
           <select value={tableId} onChange={e => setTableId(e.target.value)}>
-            <option value="auto">Automatisch{auto ? ` (${auto.label})` : ''}</option>
+            <option value="auto">Automatisch{autoG ? ` (${groupLabel(autoG)})` : ''}</option>
             {roomTables.map(t => <option key={t.id} value={t.id} disabled={state(t) === 'belegt'}>{t.label} · {t.min_seats}–{t.max_seats}p{t.online_bookable ? '' : ' · nur Team'}{state(t) && ` · ${state(t)}`}</option>)}
+            {pairs.length > 0 && <optgroup label="Zusammengestellt">{pairs.map(g => { const busy = g.some(t => tableBusy(t.id, start, STAY, p.res)); return <option key={g.map(t => t.id).join()} value={`g:${g.map(t => t.id).join()}`} disabled={busy}>{groupLabel(g)} · bis {groupSeats(g)}p{busy ? ' · belegt' : ''}</option> })}</optgroup>}
           </select>
         </label>
         <label style={{ gridColumn: '1/-1' }}>Notiz<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <div style={{ gridColumn: '1/-1' }} aria-live="polite">
-          {chosen && chosenBusy && <p className="err">{chosen.label} ist um {hm(start)} Uhr belegt. Wähle einen anderen Tisch, eine andere Uhrzeit oder „Automatisch“.</p>}
-          {chosen && hasRoom && !chosenBusy && <p className="ok">Tisch {chosen.label}{reserve ? `, Wetter-Reserve draußen: ${reserve.label}` : p.rooms.find(r => r.id === chosen.room_id)?.outdoor ? '' : ', draußen ist gerade kein Tisch als Reserve frei'}.</p>}
+          {chosen && chosenBusy && <p className="err">{groupLabel(chosenG!)} ist um {hm(start)} Uhr belegt. Wähle einen anderen Tisch, eine andere Uhrzeit oder „Automatisch“.</p>}
+          {chosen && hasRoom && !chosenBusy && <p className="ok">{combo ? `Tische ${groupLabel(chosenG!)} zusammengestellt` : `Tisch ${chosen.label}`}{reserve ? `, Wetter-Reserve draußen: ${reserve.label}` : p.rooms.find(r => r.id === chosen.room_id)?.outdoor ? '' : ', draußen ist gerade kein Tisch als Reserve frei'}.</p>}
           {p.blocked && <p className="err">Dieser Tag ist gesperrt, es sind keine Reservierungen möglich.</p>}
           {!chosen && <p className="err">Zu dieser Zeit ist im Bereich kein passender Tisch frei.</p>}
           {!auto && alts.length > 0 && <p>Besser: {alts.map(a => <button type="button" className="ghost sm" key={a.start} onClick={() => setStart(a.start)}>{hm(a.start)} Uhr ({a.table.label})</button>)}</p>}
@@ -464,7 +475,7 @@ function TableManager({ team, room, tables, onClose, onSaved }: { team: Team; ro
     const live = rows.filter(r => !r.del)
     if (live.some(r => !r.label.trim() || r.min_seats > r.max_seats)) { setBusy(false); return setErr('Jeder Tisch braucht einen Namen, und „Mindestens“ darf nicht größer sein als „Höchstens“.') }
     for (const r of rows.filter(r => r.del && r.id)) {
-      const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${r.id},alt_table_id.eq.${r.id}`)
+      const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${r.id},alt_table_id.eq.${r.id},extra_table_ids.cs.{${r.id}}`)
       if (count) { setBusy(false); return setErr(`Tisch ${r.label} hat Reservierungen. Bitte erst verschieben oder stornieren.`) }
     }
     const delIds = rows.filter(r => r.del && r.id).map(r => r.id!)
