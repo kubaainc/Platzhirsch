@@ -106,14 +106,14 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
         {canManage && <button className="ghost" aria-expanded={lockOpen} onClick={() => setLockOpen(!lockOpen)}>Bereich sperren</button>}
         {canWrite && <button onClick={() => open({ start: 1140 })}>Neue Reservierung</button>}
       </div>
-      {lockOpen && room && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
+      {(lockOpen || manage) && room && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
       {blocked && <p className="banner" role="status">Gesperrt: An diesem Tag sind keine Reservierungen möglich (z. B. Urlaub).</p>}
       <label className="daynote">Hinweis für den Tag
         <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (rule?.note ?? '') && saveRule({ note: note.trim() || null })} />
       </label>
 
       <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
-      {room && roomClosed(room, day) && <p className="banner" role="status">Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen.</p>}
+      {room && roomClosed(room, day) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
       {manage && room && (
         <>
           <RoomSettings room={room} showSize={false} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
@@ -121,7 +121,7 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
         </>
       )}
 
-      <div className="tl" role="table" aria-label={`Zeitleiste ${room?.name ?? ''}`}>
+      <div className={`tl${room && roomClosed(room, day) ? ' closed' : ''}`} role="table" aria-label={`Zeitleiste ${room?.name ?? ''}`}>
         <div className="tl-row tl-head" role="row">
           <div className="tl-lab"><b>Auslastung</b><span className="soft">{total} Gäste · {seats} Plätze</span></div>
           <div className="tl-track util">
