@@ -17,12 +17,31 @@ export type FindOpts = {
   day?: string
 }
 
-/** Kleinster passender freier Tisch im Bereich. */
+const GAP_CAP = 240
+
+/** Minuten Leerlauf direkt vor oder nach der Reservierung am Tisch (0 = nahtlos, max. GAP_CAP). */
+function slack(id: string, start: number, dur: number, res: Reservation[], ignore?: string) {
+  let before = GAP_CAP, after = GAP_CAP
+  for (const r of res) {
+    if (r.id === ignore || (r.table_id !== id && r.alt_table_id !== id)) continue
+    const end = r.start_min + r.duration_min
+    if (end <= start) before = Math.min(before, start - end)
+    else if (r.start_min >= start + dur) after = Math.min(after, r.start_min - (start + dur))
+  }
+  return Math.min(before, after)
+}
+
+/**
+ * Freier, passender Tisch im Bereich: unter den Tischen bis zur doppelten Größe des kleinsten passenden
+ * zuerst der mit Anschluss an eine andere Reservierung (wenig Leerlauf), dann der kleinste.
+ */
 export function findTable(o: FindOpts): TableRow | null {
   const c = o.tables
     .filter(t => t.room_id === o.roomId && t.min_seats <= o.party && o.party <= t.max_seats && (o.manual || t.online_bookable) && !tableBusy(t.id, o.start, o.dur, o.res, o.ignore))
-    .sort((a, b) => a.max_seats - b.max_seats || a.min_seats - b.min_seats)
-  return c[0] ?? null
+  if (!c.length) return null
+  const smallest = Math.min(...c.map(t => t.max_seats))
+  return c.filter(t => t.max_seats <= 2 * smallest)
+    .sort((a, b) => slack(a.id, o.start, o.dur, o.res, o.ignore) - slack(b.id, o.start, o.dur, o.res, o.ignore) || a.max_seats - b.max_seats || a.min_seats - b.min_seats)[0]
 }
 
 /** Wetter-Reserve: Ein Tisch drinnen blockiert zusätzlich einen freien Tisch draußen, der die Gruppe fasst. */
