@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
 import { RoomSettings, RoomTabs } from './RoomTabs'
-import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, suggest } from './booking'
+import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, suggest, tableBusy } from './booking'
 
 const DEFAULT_HOURS = { from: 1080, to: 1380 }
 const STAY = 120
@@ -160,7 +160,8 @@ export default function Timeline({ team }: { team: Team }) {
       )}
       {dlg?.kind === 'res' && (() => {
         const r = res.find(x => x.id === dlg.id); if (!r) return null
-        return <ResDetail r={r} guest={guestById.get(r.guest_id ?? '')} tables={tables} canWrite={canWrite} onClose={() => setDlg(null)}
+        return <ResDetail r={r} guest={guestById.get(r.guest_id ?? '')} tables={tables} rooms={rooms} res={res} canWrite={canWrite} onClose={() => setDlg(null)}
+          onSaved={async () => { setDlg(null); setMsg('Reservierung geändert'); await loadDay() }}
           onDelete={async () => { const { error } = await supabase.from('reservations').delete().eq('id', r.id); if (error) return setErr(error.message); setDlg(null); setMsg('Reservierung storniert'); loadDay() }} />
       })()}
       {dlg?.kind === 'tables' && room && <TableManager team={team} room={room} tables={tables} onClose={() => setDlg(null)} onSaved={t => { setTables(t); setDlg(null); setMsg('Tische gespeichert') }} />}
@@ -170,8 +171,43 @@ export default function Timeline({ team }: { team: Team }) {
   )
 }
 
-function ResDetail({ r, guest, tables, canWrite, onClose, onDelete }: { r: Reservation; guest?: Guest; tables: TableRow[]; canWrite: boolean; onClose: () => void; onDelete: () => void }) {
+function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, onSaved }: { r: Reservation; guest?: Guest; tables: TableRow[]; rooms: Room[]; res: Reservation[]; canWrite: boolean; onClose: () => void; onDelete: () => void; onSaved: () => void }) {
   const t = tables.find(x => x.id === r.table_id), alt = tables.find(x => x.id === r.alt_table_id)
+  const [edit, setEdit] = useState(false)
+  const [start, setStart] = useState(hm(r.start_min))
+  const [party, setParty] = useState(r.party)
+  const [tid, setTid] = useState(r.table_id ?? '')
+  const [note, setNote] = useState(r.note ?? '')
+  const [err, setErr] = useState('')
+  async function save(e: FormEvent) {
+    e.preventDefault(); setErr('')
+    const [h, m] = start.split(':').map(Number), s0 = h * 60 + m
+    const nt = tables.find(x => x.id === tid)
+    if (!nt) return setErr('Bitte einen Tisch wählen.')
+    if (party < 1) return setErr('Mindestens 1 Person.')
+    const o = { tables, rooms, res, roomId: nt.room_id, start: s0, dur: r.duration_min, party, manual: true, ignore: r.id }
+    if (tableBusy(nt.id, s0, r.duration_min, res, r.id)) return setErr(`${nt.label} ist zu dieser Zeit belegt.`)
+    const reserve = findReserve(o, nt)
+    const { error } = await supabase.from('reservations').update({ table_id: nt.id, alt_table_id: reserve?.id ?? null, start_min: s0, party, note: note.trim() || null }).eq('id', r.id)
+    if (error) return setErr(error.message)
+    onSaved()
+  }
+  if (edit) return (
+    <Modal title={`${guest?.name ?? 'Gast'} bearbeiten`} onClose={onClose}>
+      <form onSubmit={save}>
+        <label>Beginn<input type="time" step={900} required value={start} onChange={e => setStart(e.target.value)} /></label>
+        <label>Personen<input type="number" min={1} max={60} required value={party} onChange={e => setParty(Number(e.target.value))} /></label>
+        <label>Tisch
+          <select value={tid} onChange={e => setTid(e.target.value)}>
+            {rooms.map(ro => <optgroup key={ro.id} label={ro.name}>{tables.filter(x => x.room_id === ro.id).sort((a, b) => natural(a.label, b.label)).map(x => <option key={x.id} value={x.id}>{x.label} ({x.min_seats}–{x.max_seats}p)</option>)}</optgroup>)}
+          </select>
+        </label>
+        <label>Notiz<input value={note} onChange={e => setNote(e.target.value)} /></label>
+        <div className="acts"><button type="submit">Speichern</button><button type="button" className="ghost" onClick={() => setEdit(false)}>Abbrechen</button></div>
+        {err && <p className="err" role="alert">{err}</p>}
+      </form>
+    </Modal>
+  )
   return (
     <Modal title={guest?.name ?? 'Gast'} onClose={onClose}>
       <dl className="kv">
@@ -183,7 +219,7 @@ function ResDetail({ r, guest, tables, canWrite, onClose, onDelete }: { r: Reser
         {r.note && <><dt>Notiz</dt><dd>{r.note}</dd></>}
         <dt>Quelle</dt><dd>{r.source === 'team' ? 'Team' : 'Online'}</dd>
       </dl>
-      {canWrite && <div className="acts"><button className="danger" onClick={onDelete}>Reservierung stornieren</button></div>}
+      {canWrite && <div className="acts"><button onClick={() => setEdit(true)}>Bearbeiten</button><button className="danger" onClick={onDelete}>Reservierung stornieren</button></div>}
     </Modal>
   )
 }

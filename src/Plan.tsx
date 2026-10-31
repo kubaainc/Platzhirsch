@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { RoomSettings, RoomTabs } from './RoomTabs'
-import { supabase, type Layout, type Room, type RoomElement, type TableRow, type Team } from './supabase'
+import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
+import { isoDay, tableBusy } from './booking'
 
 const FORMS: [string, string, number, number, boolean][] = [
   ['quadrat', 'Quadrat', 70, 70, false],
@@ -53,6 +54,15 @@ export default function Plan({ team }: { team: Team }) {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [preName, setPreName] = useState('')
+  const [occ, setOcc] = useState(false)
+  const [occDay, setOccDay] = useState(isoDay(new Date()))
+  const [occTime, setOccTime] = useState('19:00')
+  const [onlyFree, setOnlyFree] = useState(false)
+  const [dayRes, setDayRes] = useState<Reservation[]>([])
+  useEffect(() => {
+    if (!occ) return
+    supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', occDay).then(({ data }) => setDayRes((data as Reservation[] | null) ?? []))
+  }, [occ, occDay, team.id])
   const planRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -202,6 +212,8 @@ export default function Plan({ team }: { team: Team }) {
   if (err && !ready) return <p className="err" role="alert">{err}</p>
   if (!ready) return <p>Lade …</p>
   const unplaced = roomTables.filter(t => !t.placed)
+  const occStart = (() => { const [h, m] = occTime.split(':').map(Number); return h * 60 + (m || 0) })()
+  const busyNow = (id: string) => occ && !edit && tableBusy(id, occStart, 120, dayRes)
   const knob = edit && selected && selected.placed && selected.room_id === roomId && room ? (() => {
     const r = Math.max(selected.w!, selected.h!) / 2 + 34
     const a = ((selected.rot - 90) * Math.PI) / 180
@@ -223,6 +235,19 @@ export default function Plan({ team }: { team: Team }) {
             <span><i className="sw black" />Nicht online reservierbar, nur Team</span>
             <span>{roomTables.length} Tische · {roomTables.reduce((s, t) => s + t.max_seats, 0)} Plätze</span>
           </p>
+          {!edit && (
+            <div className="occ">
+              <label className="inl"><input type="checkbox" checked={occ} onChange={e => setOcc(e.target.checked)} />Belegung anzeigen</label>
+              {occ && (
+                <>
+                  <input type="date" value={occDay} aria-label="Datum" onChange={e => e.target.value && setOccDay(e.target.value)} />
+                  <input type="time" step={1800} value={occTime} aria-label="Uhrzeit" onChange={e => e.target.value && setOccTime(e.target.value)} />
+                  <label className="inl"><input type="checkbox" checked={onlyFree} onChange={e => setOnlyFree(e.target.checked)} />Nur freie Tische</label>
+                  <span className="soft">{roomTables.filter(t => t.placed && !busyNow(t.id)).length} von {roomTables.filter(t => t.placed).length} frei</span>
+                </>
+              )}
+            </div>
+          )}
           <div className="presets" role="group" aria-label="Gespeicherte Anordnungen">
             <span className="lbl">Anordnungen</span>
             {layouts.length === 0 && <span className="soft">Noch keine gespeichert</span>}
@@ -297,7 +322,7 @@ export default function Plan({ team }: { team: Team }) {
             {roomTables.filter(t => t.placed).map(t => (
               <div
                 key={t.id}
-                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${t.id === sel && edit ? ' sel' : ''}`}
+                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${busyNow(t.id) ? (onlyFree ? ' dim' : ' busy') : ''}${t.id === sel && edit ? ' sel' : ''}`}
                 style={{
                   left: `${(t.x! / room.width) * 100}%`, top: `${(t.y! / room.height) * 100}%`,
                   width: `${(t.w! / room.width) * 100}%`, height: `${(t.h! / room.height) * 100}%`,
