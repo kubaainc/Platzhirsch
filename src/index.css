@@ -249,3 +249,6 @@ textarea{width:100%}
 .wdays button[aria-pressed=true]:hover:not(:disabled){background:var(--ink);color:var(--surface)}
 :root[data-look="tintenblau"] .stamm>section{border-radius:8px}
 :root[data-look="tintenblau"] .wdays button{border-radius:0}
+
+.ranges{display:grid;gap:8px;flex-basis:100%}
+.ranges>span{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end}
