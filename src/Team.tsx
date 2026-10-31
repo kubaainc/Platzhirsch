@@ -82,7 +82,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
             <p><small>Ausgeschaltete Tage sind online nicht buchbar. Telefonisch und im Team geht weiterhin alles.</small></p>
             <div className="rules">
               <label>Erste Startzeit<input type="time" step={3600} value={hmIn(num('open_from', 1080))} onChange={e => saveSetting('open_from', toMin(e.target.value))} /></label>
-              <label>Ende (Tisch frei bis)<input type="time" step={3600} value={hmIn(num('open_to', 1320))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
+              <label>Letzte Startzeit<input type="time" step={3600} value={hmIn(num('open_to', 1200))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
               <label>Vorlauf in Stunden<input type="number" min={0} max={720} value={num('online_lead_hours', 24)} onChange={e => saveSetting('online_lead_hours', Number(e.target.value))} /></label>
               <label>Aufenthalt in Minuten<input type="number" min={30} max={480} step={15} value={num('stay_minutes', 120)} onChange={e => saveSetting('stay_minutes', Number(e.target.value))} /></label>
             </div>
