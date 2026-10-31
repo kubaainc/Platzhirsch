@@ -10,6 +10,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
   const [people, setPeople] = useState(false)
+  const [embed, setEmbed] = useState(false)
   const [err, setErr] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -37,6 +38,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
       <p><button className="ghost" onClick={onBack}>← Teams</button></p>
       <div className="head"><h1>{team.name}</h1>
         <div className="acts">
+          {team.role === 'admin' && <button className="ghost" aria-expanded={embed} onClick={() => setEmbed(!embed)}>Einbinden</button>}
           {team.role === 'admin' && <button className="ghost" aria-expanded={people} onClick={() => setPeople(!people)}>Team</button>}
           {team.role === 'admin' && <button className="ghost" aria-expanded={picking} onClick={() => setPicking(!picking)}>Farben</button>}
           <div className="seg" role="group" aria-label="Ansicht">
@@ -51,6 +53,14 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
           <button className="ghost" onClick={() => saveColors(DEFAULT_COLORS)}>Zurücksetzen</button>
           {err && <p className="err" role="alert">{err}</p>}
         </div>
+      )}
+      {embed && (
+        <section className="pp" aria-label="Einbinden">
+          <h2>Auf der Restaurant-Seite einbinden</h2>
+          <p>Link zur Reservierungsseite: <a href={`${location.origin}/b/${team.slug}`} target="_blank" rel="noreferrer">{`${location.origin}/b/${team.slug}`}</a></p>
+          <p>Zum Einfügen in die Seite des Restaurants (HTML):</p>
+          <textarea readOnly rows={3} value={`<iframe src="${location.origin}/b/${team.slug}" title="Tisch reservieren" style="width:100%;max-width:560px;height:760px;border:0"></iframe>`} onFocus={e => e.target.select()} />
+        </section>
       )}
       {people && <Members team={team} />}
       {view === 'tl' ? <Timeline team={team} /> : <Plan team={team} />}

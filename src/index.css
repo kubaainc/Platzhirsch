@@ -97,3 +97,12 @@ button.danger{background:var(--rot)}
 .members ul{list-style:none;padding:0;margin:0 0 1rem}
 .members li{display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--kreide)}
 .members form{display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap}
+
+.slots{display:flex;flex-wrap:wrap;gap:8px}
+.slots button{display:grid;gap:0;padding:6px 14px;background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.slots button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
+.slots button:disabled{text-decoration:line-through}
+.slots small{font-size:12px}
+.hp{position:absolute;left:-9999px}
+select{font:inherit;padding:10px 12px;min-height:44px;border:1px solid var(--line);background:var(--surface)}
+textarea{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);background:var(--surface)}
