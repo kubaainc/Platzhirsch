@@ -279,12 +279,4 @@ dialog{max-height:calc(100dvh - 24px);overflow:auto}
 .tl-track.tgt.bad{background:color-mix(in srgb,var(--err) 12%,var(--surface));outline-color:var(--err)}
 .daybar > button:last-child{margin-left:auto}
 
-.tb .tstrip{position:absolute;left:3px;right:3px;bottom:3px;height:5px;background:color-mix(in srgb,var(--ink) 14%,transparent);overflow:hidden;pointer-events:none;font-style:normal}
-.tb.round .tstrip{left:22%;right:22%;bottom:12%}
-.tb .tstrip i{position:absolute;top:0;bottom:0;min-width:3px;background:var(--c-busy,#9A3334)}
-.tb .tstrip i.alt{background:repeating-linear-gradient(90deg,var(--c-res,#8a8a80) 0 2px,transparent 2px 4px)}
-.tb.black .tstrip{background:rgba(255,255,255,.25)}
-.tb .tstrip i{box-shadow:inset 1.5px 0 var(--surface),inset -1.5px 0 var(--surface)}
 
-.tb.has{background:color-mix(in srgb,var(--c-busy,#9A3334) 14%,var(--surface));border-color:color-mix(in srgb,var(--c-busy,#9A3334) 70%,var(--surface))}
-.tb.black.has{background:#161614;outline:2px solid color-mix(in srgb,var(--c-busy,#9A3334) 70%,transparent)}
