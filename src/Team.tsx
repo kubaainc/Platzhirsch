@@ -82,12 +82,13 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
               ))}
             </div>
             <p><small>Ausgeschaltete Tage sind online nicht buchbar. Telefonisch und im Team geht weiterhin alles.</small></p>
+            <p><small>Der Abstand der Uhrzeiten gilt für die Zeitleiste, den Reservierungs-Dialog und die Buchungsseite für Gäste.</small></p>
             <div className="rules">
               <label>Erste Startzeit<input type="time" step={3600} value={hmIn(num('open_from', 1080))} onChange={e => saveSetting('open_from', toMin(e.target.value))} /></label>
               <label>Letzte Startzeit<input type="time" step={3600} value={hmIn(num('open_to', 1200))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
-              <label>Zeitraster in der Zeitleiste
+              <label>Uhrzeiten im Abstand von
                 <select value={num('slot_minutes', 30)} onChange={e => saveSetting('slot_minutes', Number(e.target.value))}>
-                  <option value={60}>Stündlich</option><option value={30}>Halbstündlich</option><option value={15}>Viertelstündlich</option>
+                  <option value={60}>Jede volle Stunde</option><option value={30}>Alle 30 Minuten</option><option value={15}>Alle 15 Minuten</option>
                 </select>
               </label>
               <label>Vorlauf in Stunden<input type="number" min={0} max={720} value={num('online_lead_hours', 24)} onChange={e => saveSetting('online_lead_hours', Number(e.target.value))} /></label>
