@@ -56,8 +56,6 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded, on
 /** Name, Draußen und Maße eines Bereichs. Änderungen werden sofort gespeichert. */
 export function RoomSettings({ room, showSize, onChange }: { room: Room; showSize: boolean; onChange: (r: Room) => void }) {
   const [err, setErr] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
   async function patch(p: Partial<Room>) {
     setErr('')
     const next = { ...room, ...p }
@@ -74,6 +72,25 @@ export function RoomSettings({ room, showSize, onChange }: { room: Room; showSiz
       <label>Bereich<input defaultValue={room.name} key={room.id + 'n'} maxLength={30} onBlur={e => { const v = e.target.value.trim(); if (v && v !== room.name) patch({ name: v }) }} /></label>
       <label className="check"><input type="checkbox" checked={room.outdoor} onChange={e => patch({ outdoor: e.target.checked })} />Draußen</label>
       {showSize && <>{num('width')}{num('height')}</>}
+      {err && <p className="err" role="alert">{err}</p>}
+    </div>
+  )
+}
+
+/** Bereich sperren: dauerhaft oder für Zeiträume. Wird in der Zeitleiste neben „Tag sperren“ geöffnet. */
+export function RoomLock({ room, onChange }: { room: Room; onChange: (r: Room) => void }) {
+  const [err, setErr] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  async function patch(p: Partial<Room>) {
+    setErr('')
+    onChange({ ...room, ...p })
+    const { error } = await supabase.from('rooms').update(p).eq('id', room.id)
+    if (error) setErr(error.message)
+  }
+  return (
+    <div className="pp">
+      <b>{room.name}</b>
       <label className="check"><input type="checkbox" checked={room.closed} onChange={e => patch({ closed: e.target.checked })} />Gesperrt (online nicht buchbar)</label>
       <div className="ranges">
         {room.closed_ranges.map((x, i) => (

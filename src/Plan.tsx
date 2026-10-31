@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
-import { isoDay, tableBusy } from './booking'
+import { isoDay, roomClosed, tableBusy } from './booking'
 
 const FORMS: [string, string, number, number, boolean][] = [
   ['quadrat', 'Quadrat', 70, 70, false],
@@ -285,6 +285,7 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
       </div>
       {!room ? <p>Noch kein Bereich angelegt.</p> : (
         <>
+          {roomClosed(room, occ ? occDay : isoDay(new Date())) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist {occ ? 'an diesem Tag' : 'heute'} gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
           <p className="legend">
             <span><i className="sw" />Online reservierbar</span>
             <span><i className="sw black" />Nicht online reservierbar, nur Team</span>
@@ -359,6 +360,7 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
           {edit && !selected && !selEl && room && (
             <>
               <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
+              <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
               <div className="shape">
                 {!wall
                   ? <button className="ghost" onClick={createWall}>Raumform anlegen (Wände)</button>
@@ -373,7 +375,7 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
               <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
             </>
           )}
-          <div className={`plan${edit ? ' edit' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
+          <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, occ ? occDay : isoDay(new Date())) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
             <svg viewBox={`0 0 ${room.width} ${room.height}`} preserveAspectRatio="none" aria-hidden="true">
               {elements.filter(x => x.room_id === roomId && x.kind === 'wall' && x.path).map(x => (
                 <path key={x.id} d={x.path!} fill="none" stroke="#9a9a8c" strokeWidth={3} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
