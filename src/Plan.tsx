@@ -273,6 +273,19 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   if (!ready) return <p>Lade …</p>
   const unplaced = roomTables.filter(t => !t.placed)
   const occStart = (() => { const [h, m] = occTime.split(':').map(Number); return h * 60 + (m || 0) })()
+  /** Tisch von links nach rechts als Zeitachse: rot dort, wo er am Abend reserviert ist. */
+  const timeFill = (t: TableRow) => {
+    const span = hours.to - hours.from
+    const segs = dayRes.filter(r => r.table_id === t.id).sort((a, b) => a.start_min - b.start_min)
+      .map(r => [Math.max(0, ((r.start_min - hours.from) / span) * 100) + 1.2, Math.min(100, ((r.start_min + r.duration_min - hours.from) / span) * 100) - 1.2])
+    if (!segs.length) return undefined
+    const base = t.online_bookable ? 'color-mix(in srgb, var(--c-free,#2f7d4f) 14%, var(--surface))' : '#161614'
+    const red = t.online_bookable ? 'color-mix(in srgb, var(--c-busy,#9A3334) 38%, var(--surface))' : 'color-mix(in srgb, var(--c-busy,#9A3334) 80%, #161614)'
+    const stops: string[] = []; let at = 0
+    for (const [a, b] of segs) { if (b <= at) continue; const from = Math.max(a, at); if (from > at) stops.push(`${base} ${at}% ${from}%`); stops.push(`${red} ${from}% ${b}%`); at = b }
+    if (at < 100) stops.push(`${base} ${at}% 100%`)
+    return `linear-gradient(90deg, ${stops.join(', ')})`
+  }
   const busyNow = (id: string) => occ && !edit && tableBusy(id, occStart, 120, dayRes)
   const knob = edit && selected && selected.placed && selected.room_id === roomId && room ? (() => {
     const r = Math.max(selected.w!, selected.h!) / 2 + 34
@@ -396,11 +409,12 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
             {roomTables.filter(t => t.placed).map(t => (
               <div
                 key={t.id}
-                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${busyNow(t.id) ? (onlyFree ? ' dim' : ' busy') : ''}${!edit && !busyNow(t.id) && dayRes.some(r => r.table_id === t.id) ? ' has' : ''}${t.id === sel && edit ? ' sel' : ''}`}
+                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${busyNow(t.id) ? (onlyFree ? ' dim' : ' busy') : ''}${t.id === sel && edit ? ' sel' : ''}`}
                 style={{
                   left: `${(t.x! / room.width) * 100}%`, top: `${(t.y! / room.height) * 100}%`,
                   width: `${(t.w! / room.width) * 100}%`, height: `${(t.h! / room.height) * 100}%`,
                   transform: `translate(-50%,-50%) rotate(${t.rot}deg)`,
+                  ...(!edit && !busyNow(t.id) ? { background: timeFill(t) } : {}),
                 }}
                 onPointerDown={e => startDrag(e, t)}
                 onClick={!edit && canBook ? () => setBook({ table: t.id }) : undefined}
@@ -410,13 +424,6 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
                 aria-label={`Tisch ${t.label}, ${t.min_seats} bis ${t.max_seats} Personen${t.online_bookable ? '' : ', nur Team'}`}
               >
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
-                {!edit && dayRes.some(r => r.table_id === t.id || r.alt_table_id === t.id) && (
-                  <em className="tstrip" title="Belegung am Abend">
-                    {dayRes.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => (
-                      <i key={r.id} className={r.table_id === t.id ? '' : 'alt'} style={{ left: `${Math.max(0, ((r.start_min - hours.from) / (hours.to - hours.from)) * 100)}%`, width: `${(r.duration_min / (hours.to - hours.from)) * 100}%` }} />
-                    ))}
-                  </em>
-                )}
               </div>
             ))}
             {edit && shape && wallPts.length > 0 && (
