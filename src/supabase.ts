@@ -24,3 +24,6 @@ export type Reservation = {
   day: string; start_min: number; duration_min: number; party: number; source: string; note: string | null
 }
 export type DayRule = { team_id: string; day: string; blocked: boolean; note: string | null }
+
+export type Colors = { free: string; busy: string; reserve: string }
+export const DEFAULT_COLORS: Colors = { free: '#2f7d4f', busy: '#9A3334', reserve: '#8a8a80' }

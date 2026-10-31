@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { RoomSettings, RoomTabs } from './RoomTabs'
 import { supabase, type Layout, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 
 const FORMS: [string, string, number, number, boolean][] = [
@@ -47,6 +48,7 @@ export default function Plan({ team }: { team: Team }) {
   const [roomId, setRoomId] = useState('')
   const [edit, setEdit] = useState(false)
   const [sel, setSel] = useState<string | null>(null)
+  const [selEl, setSelEl] = useState<string | null>(null)
   const [guide, setGuide] = useState<Guide>({})
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
@@ -82,7 +84,7 @@ export default function Plan({ team }: { team: Team }) {
 
   function startDrag(e: RPointerEvent, t: TableRow) {
     if (!edit) return
-    setSel(t.id)
+    setSel(t.id); setSelEl(null)
     e.currentTarget.setPointerCapture(e.pointerId)
     const p0 = toRoom(e), x0 = t.x!, y0 = t.y!
     const el = e.currentTarget as HTMLElement
@@ -110,6 +112,54 @@ export default function Plan({ team }: { team: Team }) {
     }
     const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up) }
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', up)
+  }
+
+  const center = () => ({ x: Math.round(room!.width / 2), y: Math.round(room!.height / 2) })
+  const updEl = (id: string, patch: Partial<RoomElement>) => setElements(es => es.map(x => (x.id === id ? { ...x, ...patch } : x)))
+  async function saveEl(id: string, patch: Partial<RoomElement>) {
+    const { error } = await supabase.from('room_elements').update(patch).eq('id', id)
+    if (error) setErr(error.message)
+  }
+  async function addElement() {
+    setErr('')
+    const { data, error } = await supabase.from('room_elements').insert({ team_id: team.id, room_id: roomId, kind: 'rect', ...center(), w: 120, h: 80, rot: 0 }).select().single()
+    if (error) return setErr(error.message)
+    setElements(es => [...es, data as RoomElement]); setSelEl((data as RoomElement).id); setSel(null)
+  }
+  async function delElement(id: string) {
+    const { error } = await supabase.from('room_elements').delete().eq('id', id)
+    if (error) return setErr(error.message)
+    setElements(es => es.filter(x => x.id !== id)); setSelEl(null)
+  }
+  function startDragEl(e: RPointerEvent, x0: RoomElement) {
+    if (!edit) return
+    setSelEl(x0.id); setSel(null)
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    const p0 = toRoom(e)
+    let last = { x: x0.x!, y: x0.y! }
+    const move = (ev: PointerEvent) => {
+      const p = toRoom(ev)
+      last = { x: Math.max(0, Math.min(room!.width, Math.round(x0.x! + p.x - p0.x))), y: Math.max(0, Math.min(room!.height, Math.round(x0.y! + p.y - p0.y))) }
+      updEl(x0.id, last)
+    }
+    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); saveEl(x0.id, last) }
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up)
+  }
+  async function addTable() {
+    setErr('')
+    const n = tables.filter(t => t.room_id === roomId).length + 1
+    const row = { team_id: team.id, room_id: roomId, label: `Tisch ${n}`, min_seats: 2, max_seats: 4, online_bookable: true, placed: true, ...center(), w: 110, h: 62, rot: 0, round: false }
+    const { data, error } = await supabase.from('tables').insert(row).select().single()
+    if (error) return setErr(error.message)
+    setTables(ts => [...ts, data as TableRow]); setOrig(o => [...o, data as TableRow]); setSel((data as TableRow).id); setSelEl(null)
+  }
+  async function delTable(t: TableRow) {
+    const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${t.id},alt_table_id.eq.${t.id}`)
+    if (count) return setErr(`Tisch ${t.label} hat Reservierungen. Bitte erst verschieben oder stornieren.`)
+    const { error } = await supabase.from('tables').delete().eq('id', t.id)
+    if (error) return setErr(error.message)
+    setTables(ts => ts.filter(x => x.id !== t.id)); setOrig(o => o.filter(x => x.id !== t.id)); setSel(null)
   }
 
   async function persist(rows: TableRow[]) {
@@ -161,11 +211,7 @@ export default function Plan({ team }: { team: Team }) {
   return (
     <>
       <div className="bar">
-        <div className="tabs" role="tablist">
-          {rooms.map(r => (
-            <button key={r.id} role="tab" aria-selected={r.id === roomId} className={r.id === roomId ? 'on' : ''} onClick={() => { setRoomId(r.id); setSel(null) }}>{r.name}</button>
-          ))}
-        </div>
+        <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} />
         {canEdit && (edit
           ? <div className="acts"><button onClick={done}>Fertig</button><button className="ghost" onClick={cancel}>Abbrechen</button></div>
           : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Plan bearbeiten</button>)}
@@ -209,18 +255,45 @@ export default function Plan({ team }: { team: Team }) {
               </div>
             </div>
           )}
-          {edit && !selected && <p className="soft">Tisch antippen, ziehen und am Kreis darüber drehen. Alt schaltet das Einrasten aus.</p>}
-          <div className={`plan${edit ? ' edit' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) setSel(null) }}>
+          {edit && (
+            <div className="acts wrap">
+              <button className="ghost" onClick={addTable}>+ Tisch</button>
+              <button className="ghost" onClick={addElement}>+ Element (grau)</button>
+              {selected && selected.room_id === roomId && <button className="danger" onClick={() => delTable(selected)}>Tisch löschen</button>}
+            </div>
+          )}
+          {edit && unplaced.length > 0 && (
+            <p className="unplaced">Noch nicht im Plan: {unplaced.map(t => <button key={t.id} className="chip-b" onClick={() => { update(t.id, { placed: true, ...center(), w: 110, h: 62, rot: 0, round: false }); setSel(t.id) }}>{t.label}</button>)}</p>
+          )}
+          {edit && !selected && selEl && (() => {
+            const x = elements.find(y => y.id === selEl); if (!x) return null
+            const num = (k: 'w' | 'h', label: string) => <label>{label}<input className="num" type="number" min={10} max={3000} value={x[k] ?? 0} onChange={e => updEl(x.id, { [k]: Math.max(10, +e.target.value || 10) })} onBlur={() => saveEl(x.id, { w: x.w, h: x.h })} /></label>
+            return (
+              <div className="pp">
+                <b>Graues Element</b>{num('w', 'Breite')}{num('h', 'Höhe')}
+                <button className="ghost" onClick={() => { const r = x.rot === 90 ? 0 : 90; updEl(x.id, { rot: r }); saveEl(x.id, { rot: r }) }}>Drehen (90°)</button>
+                <button className="danger" onClick={() => delElement(x.id)}>Element löschen</button>
+              </div>
+            )
+          })()}
+          {edit && !selected && !selEl && room && (
+            <>
+              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
+              <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
+            </>
+          )}
+          <div className={`plan${edit ? ' edit' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
             <svg viewBox={`0 0 ${room.width} ${room.height}`} preserveAspectRatio="none" aria-hidden="true">
               {elements.filter(x => x.room_id === roomId && x.kind === 'wall' && x.path).map(x => (
                 <path key={x.id} d={x.path!} fill="none" stroke="#9a9a8c" strokeWidth={3} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
               ))}
-              {elements.filter(x => x.room_id === roomId && x.kind !== 'wall' && x.x != null).map(x => (
-                <rect key={x.id} x={x.x! - x.w! / 2} y={x.y! - x.h! / 2} width={x.w!} height={x.h!} fill="#e4e4d8" transform={`rotate(${x.rot} ${x.x} ${x.y})`} />
-              ))}
               {guide.x != null && <line x1={guide.x} x2={guide.x} y1={0} y2={room.height} stroke="#9A3334" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
               {guide.y != null && <line y1={guide.y} y2={guide.y} x1={0} x2={room.width} stroke="#9A3334" strokeWidth={1} vectorEffect="non-scaling-stroke" />}
             </svg>
+            {elements.filter(x => x.room_id === roomId && x.kind !== 'wall' && x.x != null).map(x => (
+              <div key={x.id} className={`el${x.id === selEl && edit ? ' sel' : ''}`} onPointerDown={e => startDragEl(e, x)}
+                style={{ left: `${(x.x! / room.width) * 100}%`, top: `${(x.y! / room.height) * 100}%`, width: `${(x.w! / room.width) * 100}%`, height: `${(x.h! / room.height) * 100}%`, transform: `translate(-50%,-50%) rotate(${x.rot}deg)` }} />
+            ))}
             {roomTables.filter(t => t.placed).map(t => (
               <div
                 key={t.id}
