@@ -100,7 +100,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   if (!ready) return <p>Lade …</p>
 
   const hourCells: number[] = []
-  for (let m = hours.from; m < hours.to; m += 60) hourCells.push(m)
+  for (let m = hours.from; m < hours.to; m += slot) hourCells.push(m)
   const total = res.filter(r => rows.some(t => t.id === r.table_id)).reduce((s, r) => s + r.party, 0)
 
   return (
@@ -134,8 +134,8 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
           <div className="tl-lab"><b>Auslastung</b><span className="soft">{total} Gäste · {seats} Plätze</span></div>
           <div className="tl-track util">
             {hourCells.map(m => {
-              const g = guestsAt(res, tables, roomId, m + 30), pct = seats ? Math.min(100, Math.round((g / seats) * 100)) : 0
-              return <div key={m} className="ucell" style={{ width: `${(60 / span) * 100}%` }} title={`${hm(m)} Uhr: ${g} von ${seats} Plätzen`}>
+              const g = guestsAt(res, tables, roomId, m + Math.floor(slot / 2)), pct = seats ? Math.min(100, Math.round((g / seats) * 100)) : 0
+              return <div key={m} className="ucell" style={{ width: `${(slot / span) * 100}%` }} title={`${hm(m)} Uhr: ${g} von ${seats} Plätzen`}>
                 <span className="ulab">{hm(m)}</span>
                 <i className={pct >= 90 ? 'hi' : pct >= 60 ? 'mid' : 'lo'} style={{ width: `${pct}%` }} /><b>{pct}%</b>
               </div>
