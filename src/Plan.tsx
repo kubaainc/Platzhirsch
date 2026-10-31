@@ -297,10 +297,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
     <>
       <DayHeader team={team} day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`}
         rule={rule} saveRule={saveRule} ruleErr={ruleErr} guests={guests} room={room} onRoom={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))}
-        showLock={edit} onNew={() => setBook({})}
-        edit={canEdit && (edit
-          ? <div className="acts"><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></div>
-          : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>)} />
+        showLock={edit} onNew={() => setBook({})} />
       <div className="bar">
         <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
       </div>
@@ -393,6 +390,13 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
               </div>
               <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
             </>
+          )}
+          {canEdit && (
+            <div className="acts planedit">
+              {edit
+                ? <><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></>
+                : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>}
+            </div>
           )}
           <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, day) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
             <svg viewBox={`0 0 ${room.width} ${room.height}`} preserveAspectRatio="none" aria-hidden="true">

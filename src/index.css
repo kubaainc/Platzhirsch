@@ -284,3 +284,5 @@ dialog{max-height:calc(100dvh - 24px);overflow:auto}
 .tb{overflow:hidden}
 .tb .tfill{position:absolute;left:50%;top:50%;pointer-events:none}
 .tb span{position:relative}
+
+.planedit{justify-content:flex-end;margin:0 0 8px}
