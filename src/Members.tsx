@@ -44,6 +44,19 @@ export default function Members({ team }: { team: Team }) {
     if (error) setErr(error.message)
     load()
   }
+  async function exportData() {
+    setErr('')
+    const out: Record<string, unknown> = { team: team.name, exportiert_am: new Date().toISOString() }
+    for (const t of ['rooms', 'room_elements', 'tables', 'layouts', 'guests', 'reservations', 'day_rules']) {
+      const { data, error } = await supabase.from(t).select('*').eq('team_id', team.id).limit(100000)
+      if (error) return setErr(error.message)
+      out[t] = data
+    }
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }))
+    a.download = `${team.slug}-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click(); URL.revokeObjectURL(a.href)
+  }
   async function revoke(i: Invite) {
     await supabase.from('invitations').delete().eq('team_id', team.id).eq('email', i.email)
     load()
@@ -73,6 +86,8 @@ export default function Members({ team }: { team: Team }) {
         <button type="submit">Einladen</button>
       </form>
       <p><small>Es wird keine Mail verschickt. Gib der Person Bescheid: Sie legt ein Konto mit genau dieser Adresse an (oder meldet sich an) und ist dann automatisch im Team.</small></p>
+      <h2>Daten</h2>
+      <p><button className="ghost" onClick={exportData}>Alle Daten als Datei herunterladen</button></p>
       {err && <p className="err" role="alert">{err}</p>}
     </section>
   )
