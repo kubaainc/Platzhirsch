@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type Team } from './supabase'
+import Plan from './Plan'
 
 const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -43,6 +44,7 @@ function Teams({ session }: { session: Session }) {
   const [teams, setTeams] = useState<Team[] | null>(null)
   const [name, setName] = useState('')
   const [err, setErr] = useState('')
+  const [open, setOpen] = useState<Team | null>(null)
 
   async function load() {
     const { data, error } = await supabase
@@ -65,11 +67,13 @@ function Teams({ session }: { session: Session }) {
     load()
   }
 
+  if (open) return <Plan team={open} onBack={() => setOpen(null)} />
+
   return (
     <main>
       <h1>Deine Teams</h1>
       {teams === null ? <p>Lade …</p> : (
-        <ul>{teams.map(t => <li key={t.id}><b>{t.name}</b><span>{t.role}</span></li>)}</ul>
+        <ul>{teams.map(t => <li key={t.id}><button className="ghost" onClick={() => setOpen(t)}><b>{t.name}</b></button><span>{t.role}</span></li>)}</ul>
       )}
       <h2>Neues Team</h2>
       <form onSubmit={create}>

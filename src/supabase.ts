@@ -7,3 +7,11 @@ export const supabase = createClient(
 
 export type Role = 'admin' | 'editor' | 'reservations' | 'viewer'
 export type Team = { id: string; slug: string; name: string; role: Role }
+
+export type Room = { id: string; name: string; sort: number; width: number; height: number; outdoor: boolean }
+export type RoomElement = { id: string; room_id: string; kind: string; x: number | null; y: number | null; w: number | null; h: number | null; rot: number; path: string | null }
+export type TableRow = {
+  id: string; room_id: string; label: string; min_seats: number; max_seats: number
+  online_bookable: boolean; placed: boolean
+  x: number | null; y: number | null; w: number | null; h: number | null; rot: number; round: boolean
+}
