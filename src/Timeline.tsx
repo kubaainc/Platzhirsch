@@ -325,7 +325,8 @@ export function NewReservation(p: {
   const hasRoom = chosen && chosen.min_seats <= party && party <= chosen.max_seats
   const alts = useMemo(() => (auto ? [] : suggest(opts, p.hours.from, p.hours.to)), [auto, start, party, rid, p.res]) // eslint-disable-line react-hooks/exhaustive-deps
   const times: number[] = []; for (let m = p.hours.from; m < p.hours.to; m += p.slot) times.push(m)
-  const roomTables = p.tables.filter(t => t.room_id === rid).sort((a, b) => natural(a.label, b.label))
+  const state = (t: TableRow) => tableBusy(t.id, start, STAY, p.res) ? 'belegt' : party < t.min_seats || party > t.max_seats ? 'passt nicht' : ''
+  const roomTables = p.tables.filter(t => t.room_id === rid).sort((a, b) => Number(!!state(a)) - Number(!!state(b)) || natural(a.label, b.label))
 
   async function submit(e: FormEvent) {
     e.preventDefault(); if (busy) return
@@ -365,7 +366,7 @@ export function NewReservation(p: {
         <label style={{ gridColumn: '1/-1' }}>Tisch
           <select value={tableId} onChange={e => setTableId(e.target.value)}>
             <option value="auto">Automatisch{auto ? ` (${auto.label})` : ''}</option>
-            {roomTables.map(t => <option key={t.id} value={t.id}>{t.label} · {t.min_seats}–{t.max_seats}p{t.online_bookable ? '' : ' · nur Team'}</option>)}
+            {roomTables.map(t => <option key={t.id} value={t.id} disabled={state(t) === 'belegt' && t.id !== tableId}>{t.label} · {t.min_seats}–{t.max_seats}p{t.online_bookable ? '' : ' · nur Team'}{state(t) && ` · ${state(t)}`}</option>)}
           </select>
         </label>
         <label style={{ gridColumn: '1/-1' }}>Notiz<input value={note} onChange={e => setNote(e.target.value)} /></label>
