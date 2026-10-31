@@ -452,6 +452,7 @@ function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClos
   const [day, setDay] = useState(day0)
   const [guests, setGuests] = useState<Guest[] | null>(null)
   const [hours, setHours] = useState(DEFAULT_HOURS)
+  const [slot, setSlot] = useState(30)
   const [res, setRes] = useState<Reservation[]>([])
   const [blocked, setBlocked] = useState(false)
   useEffect(() => {
@@ -459,8 +460,9 @@ function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClos
       supabase.from('guests').select('*').eq('team_id', team.id).order('name'),
       supabase.from('teams').select('settings').eq('id', team.id).single(),
     ]).then(([g, tm]) => {
-      const h = (tm.data?.settings as { hours?: { from: number; to: number } } | undefined)?.hours
-      if (h) setHours(h)
+      const st = tm.data?.settings as { hours?: { from: number; to: number }; slot_minutes?: number } | undefined
+      if (st?.hours) setHours(st.hours)
+      if (st?.slot_minutes) setSlot(st.slot_minutes)
       setGuests((g.data ?? []) as Guest[])
     })
   }, [team.id])
@@ -471,6 +473,6 @@ function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClos
     ]).then(([a, b]) => { setRes((a.data ?? []) as Reservation[]); setBlocked(!!(b.data as DayRule | null)?.blocked) })
   }, [team.id, day])
   if (!guests) return null
-  return <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} initial={{ table, start }} roomId={roomId}
+  return <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} slot={slot} initial={{ table, start }} roomId={roomId}
     onDay={setDay} blocked={blocked} onClose={onClose} onSaved={onSaved} />
 }

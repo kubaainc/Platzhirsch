@@ -74,6 +74,7 @@ li{align-items:center}
 .tl-lab{width:9rem;flex:none;padding:6px 10px;display:flex;flex-direction:column;border-right:1px solid var(--line)}
 .tl-track{position:relative;flex:1;min-height:44px}
 .tl-track .grid{position:absolute;top:0;bottom:0;border-left:1px solid var(--line)}
+.tl-track .grid.sub{opacity:.45;border-left-style:dotted}
 .tl-track.util{display:flex;min-height:52px}
 .ucell{position:relative;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;padding:2px 6px;font-size:12px}
 .ucell i{position:absolute;left:0;bottom:0;height:5px}

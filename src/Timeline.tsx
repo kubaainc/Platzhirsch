@@ -35,7 +35,7 @@ export function DayNav({ day, setDay, sub }: { day: string; setDay: (d: string) 
   )
 }
 
-export default function Timeline({ team, onEditing, day, setDay }: { team: Team; onEditing: (e: boolean) => void; day: string; setDay: (d: string) => void }) {
+export default function Timeline({ team, onEditing, day, setDay, slot }: { team: Team; onEditing: (e: boolean) => void; day: string; setDay: (d: string) => void; slot: number }) {
   const canWrite = team.role !== 'viewer'
   const canManage = team.role === 'admin' || team.role === 'editor'
   const [manage, setManage] = useState(false)
@@ -148,10 +148,10 @@ export default function Timeline({ team, onEditing, day, setDay }: { team: Team;
             <div className="tl-track" onClick={e => {
               if (!canWrite || (e.target as HTMLElement).closest('.rbar')) return
               const rc = e.currentTarget.getBoundingClientRect()
-              const m = hours.from + Math.floor(((e.clientX - rc.left) / rc.width) * span / 30) * 30
-              open({ table: t.id, start: Math.max(hours.from, Math.min(hours.to - 30, m)) })
+              const m = hours.from + Math.floor(((e.clientX - rc.left) / rc.width) * span / slot) * slot
+              open({ table: t.id, start: Math.max(hours.from, Math.min(hours.to - slot, m)) })
             }}>
-              {hourCells.map(m => <i key={m} className="grid" style={{ left: `${((m - hours.from) / span) * 100}%` }} />)}
+              {Array.from({ length: Math.ceil(span / slot) }, (_, i) => hours.from + i * slot).map(m => <i key={m} className={`grid${(m - hours.from) % 60 ? ' sub' : ''}`} style={{ left: `${((m - hours.from) / span) * 100}%` }} />)}
               {res.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => {
                 const reserve = r.table_id !== t.id
                 return <button key={r.id} className={`rbar${reserve ? ' reserve' : ''}`} onClick={() => setDlg({ kind: 'res', id: r.id })}
@@ -168,7 +168,7 @@ export default function Timeline({ team, onEditing, day, setDay }: { team: Team;
       <p className="legend"><span><i className="swb" />Reservierung</span><span><i className="swb dashed" />Wetter-Reserve (Tisch draußen reserviert für Regen)</span><span><i className="sw black" />Nur Team</span></p>
 
       {dlg?.kind === 'new' && room && (
-        <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} initial={dlg.v} roomId={roomId}
+        <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} slot={slot} initial={dlg.v} roomId={roomId}
           onClose={() => setDlg(null)} onSaved={async (g?: Guest) => { if (g) setGuests(gs => gs.some(x => x.id === g.id) ? gs : [...gs, g].sort((a, b) => a.name.localeCompare(b.name))); setDlg(null); setMsg('Reservierung gespeichert'); await loadDay() }} />
       )}
       {dlg?.kind === 'res' && (() => {
@@ -239,7 +239,7 @@ function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, 
 
 export function NewReservation(p: {
   team: Team; day: string; rooms: Room[]; tables: TableRow[]; guests: Guest[]; res: Reservation[]; hours: { from: number; to: number }
-  initial: NewRes; roomId: string; onClose: () => void; onSaved: (g?: Guest) => void
+  initial: NewRes; roomId: string; slot: number; onClose: () => void; onSaved: (g?: Guest) => void
   onDay?: (d: string) => void; blocked?: boolean
 }) {
   const initTable = p.tables.find(t => t.id === p.initial.table)
@@ -281,7 +281,7 @@ export function NewReservation(p: {
   const reserve = chosen ? findReserve(opts, chosen) : null
   const hasRoom = chosen && chosen.min_seats <= party && party <= chosen.max_seats
   const alts = useMemo(() => (auto ? [] : suggest(opts, p.hours.from, p.hours.to)), [auto, start, party, rid, p.res]) // eslint-disable-line react-hooks/exhaustive-deps
-  const times: number[] = []; for (let m = p.hours.from; m < p.hours.to; m += 30) times.push(m)
+  const times: number[] = []; for (let m = p.hours.from; m < p.hours.to; m += p.slot) times.push(m)
   const roomTables = p.tables.filter(t => t.room_id === rid).sort((a, b) => natural(a.label, b.label))
 
   async function submit(e: FormEvent) {
