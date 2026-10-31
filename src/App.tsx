@@ -47,6 +47,7 @@ function Teams({ session }: { session: Session }) {
   const [open, setOpen] = useState<Team | null>(null)
 
   async function load() {
+    await supabase.rpc('accept_invitations')
     const { data, error } = await supabase
       .from('memberships')
       .select('role, teams(id, slug, name)')

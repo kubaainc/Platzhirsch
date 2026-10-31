@@ -19,11 +19,11 @@ li{align-items:center}
 .tabs button.on{border-bottom-color:var(--rot)}
 .legend{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
-.sw{display:inline-block;width:14px;height:14px;border:1px solid #2f7d4f;background:#e4f0e8}
+.sw{display:inline-block;width:14px;height:14px;border:1px solid var(--c-free,#2f7d4f);background:color-mix(in srgb,var(--c-free,#2f7d4f) 14%,#fff)}
 .sw.black{background:#161614;border-color:#161614}
 .plan{position:relative;width:100%;background:var(--surface);border:1px solid var(--line)}
 .plan svg{position:absolute;inset:0;width:100%;height:100%}
-.tb{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;background:#e4f0e8;border:1.5px solid #2f7d4f;color:var(--ink);font-size:clamp(8px,1.1vw,13px);line-height:1.15}
+.tb{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;background:color-mix(in srgb,var(--c-free,#2f7d4f) 14%,#fff);border:1.5px solid var(--c-free,#2f7d4f);color:var(--ink);font-size:clamp(8px,1.1vw,13px);line-height:1.15}
 .tb.round{border-radius:50%}
 .tb.black{background:#161614;border-color:#161614;color:#f6f6ef}
 .tb span{display:flex;flex-direction:column}
@@ -64,10 +64,10 @@ li{align-items:center}
 .tl-track.util{display:flex;min-height:52px}
 .ucell{position:relative;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;padding:2px 6px;font-size:12px}
 .ucell i{position:absolute;left:0;bottom:0;height:5px}
-.ucell i.lo{background:#2f7d4f}.ucell i.mid{background:#c98a1b}.ucell i.hi{background:var(--rot)}
-.rbar{position:absolute;top:6px;bottom:6px;min-height:0;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;background:#f3dcdc;color:var(--ink);border:1.5px solid var(--rot);font-size:13px}
-.rbar.reserve{background:none;border-style:dashed;color:#6b6b60}
-.swb{display:inline-block;width:14px;height:14px;background:#f3dcdc;border:1.5px solid var(--rot)}.swb.dashed{background:none;border-style:dashed}
+.ucell i.lo{background:var(--c-free,#2f7d4f)}.ucell i.mid{background:#c98a1b}.ucell i.hi{background:var(--c-busy,#9A3334)}
+.rbar{position:absolute;top:6px;bottom:6px;min-height:0;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;background:color-mix(in srgb,var(--c-busy,#9A3334) 16%,#fff);color:var(--ink);border:1.5px solid var(--c-busy,#9A3334);font-size:13px}
+.rbar.reserve{background:none;border-style:dashed;border-color:var(--c-res,#8a8a80);color:#6b6b60}
+.swb{display:inline-block;width:14px;height:14px;background:color-mix(in srgb,var(--c-busy,#9A3334) 16%,#fff);border:1.5px solid var(--c-busy,#9A3334)}.swb.dashed{background:none;border-style:dashed;border-color:var(--c-res,#8a8a80)}
 .pad{padding:12px}
 dialog{border:0;padding:0;max-width:min(560px,94vw);width:100%;background:var(--surface);color:var(--ink)}
 dialog::backdrop{background:rgba(22,22,20,.5)}
@@ -81,3 +81,19 @@ button.danger{background:var(--rot)}
 .hits{padding:0}.hits button{width:100%;display:flex;justify-content:space-between}
 .hist li{display:block;padding:2px 0;background:none;border:0}
 @media (max-width:560px){.grid2{grid-template-columns:1fr}}
+.tabs .plus{font-size:20px;padding:0 14px;color:var(--rot)}
+.check{display:flex;flex-direction:row;align-items:center;gap:8px}
+.check input{min-height:0;width:18px;height:18px}
+.acts.wrap{flex-wrap:wrap;margin:8px 0}
+.unplaced{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip-b{background:var(--surface);color:var(--ink);border:1px dashed var(--ink);min-height:36px;padding:0 12px}
+.el{position:absolute;background:#e4e4d8}
+.plan.edit .el{cursor:grab;touch-action:none}
+.el.sel{outline:2px solid var(--rot);outline-offset:2px}
+.tm{width:100%;border-collapse:collapse}.tm th{text-align:left;font-size:12px}.tm td{padding:4px 4px 4px 0}.tm input.num{width:4.5rem}
+.color{display:flex;flex-direction:row;align-items:center;gap:8px}.color input{padding:0;width:44px;min-height:36px}
+.plan svg{pointer-events:none}
+
+.members ul{list-style:none;padding:0;margin:0 0 1rem}
+.members li{display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--kreide)}
+.members form{display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap}

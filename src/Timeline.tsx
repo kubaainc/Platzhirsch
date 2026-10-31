@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
+import { RoomSettings, RoomTabs } from './RoomTabs'
 import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, suggest } from './booking'
 
 const DEFAULT_HOURS = { from: 1080, to: 1380 }
@@ -23,6 +24,8 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 
 export default function Timeline({ team }: { team: Team }) {
   const canWrite = team.role !== 'viewer'
+  const canManage = team.role === 'admin' || team.role === 'editor'
+  const [manage, setManage] = useState(false)
   const [day, setDay] = useState(isoDay(new Date()))
   const [rooms, setRooms] = useState<Room[]>([])
   const [tables, setTables] = useState<TableRow[]>([])
@@ -34,7 +37,7 @@ export default function Timeline({ team }: { team: Team }) {
   const [ready, setReady] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
-  const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'guests' }>(null)
+  const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'guests' } | { kind: 'tables' }>(null)
   const [note, setNote] = useState('')
 
   useEffect(() => {
@@ -96,6 +99,7 @@ export default function Timeline({ team }: { team: Team }) {
         <button className="ghost" onClick={() => setDay(isoDay(new Date()))}>Heute</button>
         <span className="grow" />
         <button className="ghost" onClick={() => setDlg({ kind: 'guests' })}>Gäste suchen</button>
+        {canManage && <button className="ghost" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Bearbeiten beenden' : 'Bearbeiten'}</button>}
         {canWrite && <button className="ghost" aria-pressed={blocked} onClick={() => saveRule({ blocked: !blocked })}>{blocked ? 'Tag entsperren' : 'Tag sperren'}</button>}
         {canWrite && <button onClick={() => open({ start: 1140 })}>Neue Reservierung</button>}
       </div>
@@ -104,9 +108,13 @@ export default function Timeline({ team }: { team: Team }) {
         <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (rule?.note ?? '') && saveRule({ note: note.trim() || null })} />
       </label>
 
-      <div className="tabs" role="tablist">
-        {rooms.map(r => <button key={r.id} role="tab" aria-selected={r.id === roomId} className={r.id === roomId ? 'on' : ''} onClick={() => setRoomId(r.id)}>{r.name}</button>)}
-      </div>
+      <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} />
+      {manage && room && (
+        <>
+          <RoomSettings room={room} showSize={false} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
+          <p><button onClick={() => setDlg({ kind: 'tables' })}>Tische verwalten</button> <span className="soft">Neue Tische erscheinen im Raumplan oberhalb des Plans unter „Noch nicht im Plan“.</span></p>
+        </>
+      )}
 
       <div className="tl" role="table" aria-label={`Zeitleiste ${room?.name ?? ''}`}>
         <div className="tl-row tl-head" role="row">
@@ -155,6 +163,7 @@ export default function Timeline({ team }: { team: Team }) {
         return <ResDetail r={r} guest={guestById.get(r.guest_id ?? '')} tables={tables} canWrite={canWrite} onClose={() => setDlg(null)}
           onDelete={async () => { const { error } = await supabase.from('reservations').delete().eq('id', r.id); if (error) return setErr(error.message); setDlg(null); setMsg('Reservierung storniert'); loadDay() }} />
       })()}
+      {dlg?.kind === 'tables' && room && <TableManager team={team} room={room} tables={tables} onClose={() => setDlg(null)} onSaved={t => { setTables(t); setDlg(null); setMsg('Tische gespeichert') }} />}
       {dlg?.kind === 'guests' && <GuestSearch team={team} guests={guests} onClose={() => setDlg(null)} />}
       <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
     </>
@@ -286,6 +295,55 @@ function GuestSearch({ team, guests, onClose }: { team: Team; guests: Guest[]; o
           )}
         </div>
       )}
+    </Modal>
+  )
+}
+
+type Draft = { id?: string; label: string; min_seats: number; max_seats: number; online_bookable: boolean; del?: boolean }
+
+function TableManager({ team, room, tables, onClose, onSaved }: { team: Team; room: Room; tables: TableRow[]; onClose: () => void; onSaved: (all: TableRow[]) => void }) {
+  const [rows, setRows] = useState<Draft[]>(() => tables.filter(t => t.room_id === room.id).sort((a, b) => natural(a.label, b.label)).map(t => ({ id: t.id, label: t.label, min_seats: t.min_seats, max_seats: t.max_seats, online_bookable: t.online_bookable })))
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+  const set = (i: number, p: Partial<Draft>) => setRows(rs => rs.map((r, k) => (k === i ? { ...r, ...p } : r)))
+  async function save() {
+    if (busy) return
+    setErr(''); setBusy(true)
+    const live = rows.filter(r => !r.del)
+    if (live.some(r => !r.label.trim() || r.min_seats > r.max_seats)) { setBusy(false); return setErr('Jeder Tisch braucht einen Namen, und „Mindestens“ darf nicht größer sein als „Höchstens“.') }
+    for (const r of rows.filter(r => r.del && r.id)) {
+      const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${r.id},alt_table_id.eq.${r.id}`)
+      if (count) { setBusy(false); return setErr(`Tisch ${r.label} hat Reservierungen. Bitte erst verschieben oder stornieren.`) }
+    }
+    const delIds = rows.filter(r => r.del && r.id).map(r => r.id!)
+    if (delIds.length) { const { error } = await supabase.from('tables').delete().in('id', delIds); if (error) { setBusy(false); return setErr(error.message) } }
+    const existing = live.filter(r => r.id).map(r => ({ id: r.id, team_id: team.id, room_id: room.id, label: r.label.trim(), min_seats: r.min_seats, max_seats: r.max_seats, online_bookable: r.online_bookable }))
+    if (existing.length) { const { error } = await supabase.from('tables').upsert(existing); if (error) { setBusy(false); return setErr(error.message) } }
+    const added = live.filter(r => !r.id).map(r => ({ team_id: team.id, room_id: room.id, label: r.label.trim(), min_seats: r.min_seats, max_seats: r.max_seats, online_bookable: r.online_bookable, placed: false }))
+    if (added.length) { const { error } = await supabase.from('tables').insert(added); if (error) { setBusy(false); return setErr(error.message) } }
+    const { data, error } = await supabase.from('tables').select('*').eq('team_id', team.id)
+    setBusy(false)
+    if (error) return setErr(error.message)
+    onSaved(data as TableRow[])
+  }
+  return (
+    <Modal title={`Tische: ${room.name}`} onClose={onClose}>
+      <table className="tm"><thead><tr><th>Name</th><th>Min.</th><th>Max.</th><th>Online</th><th /></tr></thead>
+        <tbody>
+          {rows.map((r, i) => r.del ? null : (
+            <tr key={r.id ?? `n${i}`}>
+              <td><input aria-label="Name" value={r.label} onChange={e => set(i, { label: e.target.value })} /></td>
+              <td><input aria-label="Mindestens" className="num" type="number" min={1} value={r.min_seats} onChange={e => set(i, { min_seats: Math.max(1, +e.target.value || 1) })} /></td>
+              <td><input aria-label="Höchstens" className="num" type="number" min={1} value={r.max_seats} onChange={e => set(i, { max_seats: Math.max(1, +e.target.value || 1) })} /></td>
+              <td><input aria-label="Online reservierbar" type="checkbox" checked={r.online_bookable} onChange={e => set(i, { online_bookable: e.target.checked })} /></td>
+              <td><button type="button" className="ghost" aria-label={`${r.label} entfernen`} onClick={() => r.id ? set(i, { del: true }) : setRows(rs => rs.filter((_, k) => k !== i))}>×</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p><button type="button" className="ghost" onClick={() => setRows(rs => [...rs, { label: `Tisch ${rs.filter(r => !r.del).length + 1}`, min_seats: 2, max_seats: 4, online_bookable: true }])}>+ Tisch hinzufügen</button></p>
+      {err && <p className="err" role="alert">{err}</p>}
+      <div className="acts"><button onClick={save} disabled={busy}>Speichern</button><button className="ghost" onClick={onClose}>Abbrechen</button></div>
     </Modal>
   )
 }
