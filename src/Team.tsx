@@ -3,9 +3,11 @@ import { DEFAULT_COLORS, supabase, type Colors, type Team as TeamT } from './sup
 import Plan from './Plan'
 import Timeline from './Timeline'
 import Members from './Members'
+import { isoDay } from './booking'
 
 export default function Team({ team, onBack }: { team: TeamT; onBack: () => void }) {
   const [view, setView] = useState<'tl' | 'plan'>('tl')
+  const [day, setDay] = useState(isoDay(new Date()))
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
@@ -83,6 +85,11 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
             <div className="rules">
               <label>Erste Startzeit<input type="time" step={3600} value={hmIn(num('open_from', 1080))} onChange={e => saveSetting('open_from', toMin(e.target.value))} /></label>
               <label>Letzte Startzeit<input type="time" step={3600} value={hmIn(num('open_to', 1200))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
+              <label>Zeitraster in der Zeitleiste
+                <select value={num('slot_minutes', 30)} onChange={e => saveSetting('slot_minutes', Number(e.target.value))}>
+                  <option value={60}>Stündlich</option><option value={30}>Halbstündlich</option><option value={15}>Viertelstündlich</option>
+                </select>
+              </label>
               <label>Vorlauf in Stunden<input type="number" min={0} max={720} value={num('online_lead_hours', 24)} onChange={e => saveSetting('online_lead_hours', Number(e.target.value))} /></label>
               <label>Aufenthalt in Minuten<input type="number" min={30} max={480} step={15} value={num('stay_minutes', 120)} onChange={e => saveSetting('stay_minutes', Number(e.target.value))} /></label>
             </div>
@@ -104,7 +111,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
           <Members team={team} />
         </div>
       )}
-      {view === 'tl' ? <Timeline team={team} onEditing={setEditing} /> : <Plan team={team} onEditing={setEditing} />}
+      {view === 'tl' ? <Timeline team={team} onEditing={setEditing} day={day} setDay={setDay} slot={num('slot_minutes', 30)} /> : <Plan team={team} onEditing={setEditing} day={day} setDay={setDay} />}
     </main>
   )
 }

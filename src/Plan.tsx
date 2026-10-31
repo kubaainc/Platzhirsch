@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
-import { DEFAULT_HOURS, NewReservation } from './Timeline'
+import { DayNav, DEFAULT_HOURS, NewReservation } from './Timeline'
 import { supabase, type DayRule, type Guest, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
-import { isoDay, roomClosed, tableBusy } from './booking'
+import { roomClosed, tableBusy } from './booking'
 
 const FORMS: [string, string, number, number, boolean][] = [
   ['quadrat', 'Quadrat', 70, 70, false],
@@ -46,7 +46,7 @@ function snapTo(t: TableRow, x: number, y: number, others: TableRow[], th: numbe
   return { x, y, guide: gx }
 }
 
-export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: boolean) => void }) {
+export default function Plan({ team, onEditing, day, setDay }: { team: Team; onEditing: (e: boolean) => void; day: string; setDay: (d: string) => void }) {
   const canEdit = team.role === 'admin' || team.role === 'editor'
   const [rooms, setRooms] = useState<Room[]>([])
   const [elements, setElements] = useState<RoomElement[]>([])
@@ -67,13 +67,12 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
   const [selVtx, setSelVtx] = useState<number | null>(null)
   useEffect(() => { if (!edit) setShape(false) }, [edit])
   const [occ, setOcc] = useState(false)
-  const [occDay, setOccDay] = useState(isoDay(new Date()))
   const [occTime, setOccTime] = useState('19:00')
   const [onlyFree, setOnlyFree] = useState(false)
   const [dayRes, setDayRes] = useState<Reservation[]>([])
-  const loadOcc = () => supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', occDay).then(({ data }) => setDayRes((data as Reservation[] | null) ?? []))
-  useEffect(() => { if (occ) loadOcc() }, [occ, occDay, team.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [book, setBook] = useState<string | null>(null)
+  const loadOcc = () => supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', day).then(({ data }) => setDayRes((data as Reservation[] | null) ?? []))
+  useEffect(() => { loadOcc() }, [day, team.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [book, setBook] = useState<{ table?: string } | null>(null)
   const canBook = team.role !== 'viewer'
   const planRef = useRef<HTMLDivElement>(null)
 
@@ -278,6 +277,11 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
 
   return (
     <>
+      <div className="daybar">
+        <DayNav day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`} />
+        <span className="grow" />
+        {canBook && <button onClick={() => setBook({})}>Neue Reservierung</button>}
+      </div>
       <div className="bar">
         <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
         {canEdit && (edit
@@ -286,7 +290,7 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
       </div>
       {!room ? <p>Noch kein Bereich angelegt.</p> : (
         <>
-          {roomClosed(room, occ ? occDay : isoDay(new Date())) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist {occ ? 'an diesem Tag' : 'heute'} gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
+          {roomClosed(room, day) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
           <p className="legend">
             <span><i className="sw" />Online reservierbar</span>
             <span><i className="sw black" />Nicht online reservierbar, nur Team</span>
@@ -297,7 +301,6 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
               <label className="inl"><input type="checkbox" checked={occ} onChange={e => setOcc(e.target.checked)} />Belegung anzeigen</label>
               {occ && (
                 <>
-                  <input type="date" value={occDay} aria-label="Datum" onChange={e => e.target.value && setOccDay(e.target.value)} />
                   <input type="time" step={1800} value={occTime} aria-label="Uhrzeit" onChange={e => e.target.value && setOccTime(e.target.value)} />
                   <label className="inl"><input type="checkbox" checked={onlyFree} onChange={e => setOnlyFree(e.target.checked)} />Nur freie Tische</label>
                   <span className="soft">{roomTables.filter(t => t.placed && !busyNow(t.id)).length} von {roomTables.filter(t => t.placed).length} frei</span>
@@ -376,7 +379,7 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
               <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
             </>
           )}
-          <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, occ ? occDay : isoDay(new Date())) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
+          <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, day) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
             <svg viewBox={`0 0 ${room.width} ${room.height}`} preserveAspectRatio="none" aria-hidden="true">
               {elements.filter(x => x.room_id === roomId && x.kind === 'wall' && x.path).map(x => (
                 <path key={x.id} d={x.path!} fill="none" stroke="#9a9a8c" strokeWidth={3} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
@@ -398,10 +401,10 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
                   transform: `translate(-50%,-50%) rotate(${t.rot}deg)`,
                 }}
                 onPointerDown={e => startDrag(e, t)}
-                onClick={!edit && canBook ? () => setBook(t.id) : undefined}
+                onClick={!edit && canBook ? () => setBook({ table: t.id }) : undefined}
                 role={edit || canBook ? 'button' : undefined}
                 tabIndex={edit || canBook ? 0 : undefined}
-                onKeyDown={edit ? e => { if (e.key === 'Enter' || e.key === ' ') setSel(t.id) } : canBook ? e => { if (e.key === 'Enter' || e.key === ' ') setBook(t.id) } : undefined}
+                onKeyDown={edit ? e => { if (e.key === 'Enter' || e.key === ' ') setSel(t.id) } : canBook ? e => { if (e.key === 'Enter' || e.key === ' ') setBook({ table: t.id }) } : undefined}
                 aria-label={`Tisch ${t.label}, ${t.min_seats} bis ${t.max_seats} Personen${t.online_bookable ? '' : ', nur Team'}`}
               >
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
@@ -435,8 +438,8 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
           {unplaced.length > 0 && <p>Nicht platziert: {unplaced.map(t => t.label).join(', ')}</p>}
         </>
       )}
-      {book && room && <PlanBook team={team} rooms={rooms} tables={tables} roomId={roomId} table={book} day={occ ? occDay : isoDay(new Date())} start={occ ? occStart : 1140}
-        onClose={() => setBook(null)} onSaved={() => { setBook(null); setMsg('Reservierung gespeichert'); if (occ) loadOcc() }} />}
+      {book && room && <PlanBook team={team} rooms={rooms} tables={tables} roomId={roomId} table={book.table} day={day} start={occ ? occStart : 1140}
+        onClose={() => setBook(null)} onSaved={() => { setBook(null); setMsg('Reservierung gespeichert'); loadOcc() }} />}
       <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
     </>
   )
@@ -444,11 +447,12 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
 
 /** Telefon-Reservierung direkt aus dem Raumplan: gleiche Maske wie in der Zeitleiste, Tisch ist vorgewählt. */
 function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClose, onSaved }: {
-  team: Team; rooms: Room[]; tables: TableRow[]; roomId: string; table: string; day: string; start: number; onClose: () => void; onSaved: () => void
+  team: Team; rooms: Room[]; tables: TableRow[]; roomId: string; table?: string; day: string; start: number; onClose: () => void; onSaved: () => void
 }) {
   const [day, setDay] = useState(day0)
   const [guests, setGuests] = useState<Guest[] | null>(null)
   const [hours, setHours] = useState(DEFAULT_HOURS)
+  const [slot, setSlot] = useState(30)
   const [res, setRes] = useState<Reservation[]>([])
   const [blocked, setBlocked] = useState(false)
   useEffect(() => {
@@ -456,8 +460,9 @@ function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClos
       supabase.from('guests').select('*').eq('team_id', team.id).order('name'),
       supabase.from('teams').select('settings').eq('id', team.id).single(),
     ]).then(([g, tm]) => {
-      const h = (tm.data?.settings as { hours?: { from: number; to: number } } | undefined)?.hours
-      if (h) setHours(h)
+      const st = tm.data?.settings as { hours?: { from: number; to: number }; slot_minutes?: number } | undefined
+      if (st?.hours) setHours(st.hours)
+      if (st?.slot_minutes) setSlot(st.slot_minutes)
       setGuests((g.data ?? []) as Guest[])
     })
   }, [team.id])
@@ -468,6 +473,6 @@ function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClos
     ]).then(([a, b]) => { setRes((a.data ?? []) as Reservation[]); setBlocked(!!(b.data as DayRule | null)?.blocked) })
   }, [team.id, day])
   if (!guests) return null
-  return <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} initial={{ table, start }} roomId={roomId}
+  return <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} slot={slot} initial={{ table, start }} roomId={roomId}
     onDay={setDay} blocked={blocked} onClose={onClose} onSaved={onSaved} />
 }

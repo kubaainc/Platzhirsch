@@ -74,6 +74,7 @@ li{align-items:center}
 .tl-lab{width:9rem;flex:none;padding:6px 10px;display:flex;flex-direction:column;border-right:1px solid var(--line)}
 .tl-track{position:relative;flex:1;min-height:44px}
 .tl-track .grid{position:absolute;top:0;bottom:0;border-left:1px solid var(--line)}
+.tl-track .grid.sub{opacity:.45;border-left-style:dotted}
 .tl-track.util{display:flex;min-height:52px}
 .ucell{position:relative;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end;padding:2px 6px;font-size:12px}
 .ucell i{position:absolute;left:0;bottom:0;height:5px}
@@ -256,3 +257,7 @@ textarea{width:100%}
 .ranges>span{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end}
 .tl.closed,.plan.closed{opacity:.7;filter:grayscale(.5)}
 .plan:not(.edit) .tb[role=button]{cursor:pointer}
+.sugg-wrap{position:relative}
+.suggest{position:absolute;top:100%;left:0;right:0;z-index:5;margin:2px 0 0;padding:4px;display:grid;gap:2px;background:var(--surface);border:1px solid var(--line-strong);box-shadow:0 8px 24px rgba(0,0,0,.2);max-height:240px;overflow:auto}
+.suggest li{padding:0;border:0;background:none;display:block}
+.suggest button{width:100%;display:flex;justify-content:space-between;gap:12px;text-align:left;border-color:transparent}
