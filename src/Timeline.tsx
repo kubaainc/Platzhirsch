@@ -245,7 +245,23 @@ export function NewReservation(p: {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [last, setLast] = useState<'name' | 'phone' | 'email' | null>(null)
+  const [picked, setPicked] = useState<Guest | null>(null)
   const matched = useMemo(() => matchGuest(p.guests, phone, email), [p.guests, phone, email])
+  const hits = useMemo(() => {
+    const q = (last === 'name' ? name : last === 'email' ? email : phone).trim().toLowerCase(), d = phone.replace(/\D/g, '')
+    if (!last || picked) return []
+    const ok = (g: Guest) => last === 'name' ? q.length >= 2 && g.name.toLowerCase().includes(q)
+      : last === 'email' ? q.length >= 2 && (g.email ?? '').toLowerCase().includes(q)
+      : d.length >= 3 && (g.phone ?? '').replace(/\D/g, '').includes(d)
+    return p.guests.filter(ok).slice(0, 6)
+  }, [p.guests, last, name, email, phone, picked])
+  async function pick(g: Guest) {
+    setPicked(g); setName(g.name); setPhone(g.phone ?? ''); setEmail(g.email ?? '')
+    const { data } = await supabase.from('reservations').select('note').eq('guest_id', g.id).not('note', 'is', null).order('day', { ascending: false }).limit(1)
+    const n = (data as { note: string | null }[] | null)?.[0]?.note
+    if (n) setNote(n)
+  }
   const opts = { tables: p.tables, rooms: p.rooms, res: p.res, roomId: rid, start, dur: STAY, party, manual: true }
   const auto = useMemo(() => findTable(opts), [p.tables, p.res, rid, start, party]) // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = tableId === 'auto' ? auto : p.tables.find(t => t.id === tableId) ?? null
@@ -264,7 +280,7 @@ export function NewReservation(p: {
     if (tableId !== 'auto' && findTable({ ...opts, roomId: chosen.room_id })?.id !== chosen.id && p.res.some(r => (r.table_id === chosen.id || r.alt_table_id === chosen.id) && r.start_min < start + STAY && start < r.start_min + r.duration_min))
       return setErr(`Tisch ${chosen.label} ist zu dieser Zeit belegt.`)
     setBusy(true)
-    let guest: Guest | undefined = matched ?? undefined
+    let guest: Guest | undefined = matched ?? picked ?? undefined
     if (!guest) {
       const { data, error } = await supabase.from('guests').insert({ team_id: p.team.id, name: name.trim(), phone: phone.trim() || null, email: email.trim() || null }).select().single()
       if (error) { setBusy(false); return setErr(error.code === '23505' ? 'Dieser Gast existiert schon (gleiche Telefonnummer oder E-Mail).' : error.message) }
@@ -276,17 +292,18 @@ export function NewReservation(p: {
     })
     setBusy(false)
     if (error) return setErr(error.message)
-    p.onSaved(matched ? undefined : guest)
+    p.onSaved(matched || picked ? undefined : guest)
   }
 
   return (
     <Modal title="Neue Reservierung" onClose={p.onClose}>
       <form onSubmit={submit} className="grid2">
         {p.onDay && <label style={{ gridColumn: '1/-1' }}>Datum<input type="date" required value={p.day} onChange={e => e.target.value && p.onDay!(e.target.value)} /></label>}
-        <label>Name<input required value={name} onChange={e => setName(e.target.value)} placeholder={matched?.name} /></label>
+        <label>Name<input required value={name} onChange={e => { setName(e.target.value); setLast('name'); setPicked(null) }} placeholder={matched?.name} autoComplete="off" /></label>
         <label>Personen<input type="number" min={1} max={60} required value={party} onChange={e => setParty(Math.max(1, +e.target.value || 1))} /></label>
-        <label>Telefon<input inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} /></label>
-        <label>E-Mail<input type="email" value={email} onChange={e => setEmail(e.target.value)} /></label>
+        <label>Telefon<input inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); setLast('phone'); setPicked(null) }} autoComplete="off" /></label>
+        <label>E-Mail<input type="email" value={email} onChange={e => { setEmail(e.target.value); setLast('email'); setPicked(null) }} autoComplete="off" /></label>
+        {hits.length > 0 && <ul className="hits" style={{ gridColumn: '1/-1' }} aria-label="Bekannte Gäste">{hits.map(g => <li key={g.id}><button type="button" className="ghost" onClick={() => pick(g)}><b>{g.name}</b><span className="soft">{[g.phone, g.email].filter(Boolean).join(' · ')}</span></button></li>)}</ul>}
         {matched && <p className="match" role="status" style={{ gridColumn: '1/-1' }}>Gast gefunden: <b>{matched.name}</b>. Die Reservierung wird diesem Gast zugeordnet.</p>}
         <label>Uhrzeit<select value={start} onChange={e => setStart(+e.target.value)}>{times.map(m => <option key={m} value={m}>{hm(m)} Uhr</option>)}</select></label>
         <label>Bereich<select value={rid} onChange={e => { setRid(e.target.value); setTableId('auto') }}>{p.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
