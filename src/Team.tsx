@@ -9,8 +9,8 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [people, setPeople] = useState(false)
-  const [embed, setEmbed] = useState(false)
   const [err, setErr] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -49,23 +49,22 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
       <p><button className="ghost" onClick={onBack}>← Teams</button></p>
       <div className="head"><h1>{team.name}</h1>
         <div className="acts">
-          {team.role === 'admin' && <button className="ghost" aria-expanded={embed} onClick={() => setEmbed(!embed)}>Einbinden</button>}
-          {team.role === 'admin' && <button className="ghost" aria-expanded={people} onClick={() => setPeople(!people)}>Team</button>}
-          {team.role === 'admin' && <button className="ghost" aria-expanded={picking} onClick={() => setPicking(!picking)}>Farben</button>}
+          {team.role === 'admin' && <button className="ghost" aria-expanded={people} onClick={() => setPeople(!people)}>Stammdaten</button>}
+          {team.role === 'admin' && editing && <button className="ghost" aria-expanded={picking} onClick={() => setPicking(!picking)}>Farben</button>}
           <div className="seg" role="group" aria-label="Ansicht">
             <button aria-pressed={view === 'tl'} onClick={() => setView('tl')}>Zeitleiste</button>
             <button aria-pressed={view === 'plan'} onClick={() => setView('plan')}>Raumplan</button>
           </div>
         </div>
       </div>
-      {picking && (
+      {picking && editing && (
         <div className="pp">
           {field('free', 'Frei')}{field('busy', 'Belegt')}{field('reserve', 'Wetter-Reserve')}
           <button className="ghost" onClick={() => saveColors(DEFAULT_COLORS)}>Zurücksetzen</button>
           {err && <p className="err" role="alert">{err}</p>}
         </div>
       )}
-      {embed && (
+      {people && (
         <section className="pp" aria-label="Einbinden">
           <h2>Auf der Restaurant-Seite einbinden</h2>
           <p>Link zur Reservierungsseite: <a href={`${location.origin}/b/${team.slug}`} target="_blank" rel="noreferrer">{`${location.origin}/b/${team.slug}`}</a></p>
@@ -82,7 +81,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
         </section>
       )}
       {people && <Members team={team} />}
-      {view === 'tl' ? <Timeline team={team} /> : <Plan team={team} />}
+      {view === 'tl' ? <Timeline team={team} onEditing={setEditing} /> : <Plan team={team} onEditing={setEditing} />}
     </main>
   )
 }
