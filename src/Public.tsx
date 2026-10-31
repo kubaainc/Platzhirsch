@@ -128,7 +128,7 @@ export default function Public({ slug }: { slug: string }) {
                 {Array.from({ length: DAYS }, (_, i) => addDays(today, i)).map((d, i) => {
                   const p = dayParts(d)
                   return (
-                    <button type="button" key={d} className={all && !hasFree(d) ? 'none' : ''} aria-pressed={day === d} aria-label={`${dayLabel(d)}${all && !hasFree(d) ? ', keine freien Zeiten online' : ''}`} onClick={() => { picked.current = true; setDay(d) }}>
+                    <button type="button" key={d} className={all && !hasFree(d) ? 'none' : ''} disabled={!!all && !hasFree(d)} aria-pressed={day === d} aria-label={`${dayLabel(d)}${all && !hasFree(d) ? ', keine freien Zeiten online' : ''}`} onClick={() => { picked.current = true; setDay(d) }}>
                       <small>{i === 0 ? 'heute' : p.wd}</small><b>{p.n}.</b><small>{p.mon}</small>
                     </button>
                   )
