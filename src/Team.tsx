@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { DEFAULT_COLORS, supabase, type Colors, type Team as TeamT } from './supabase'
 import Plan from './Plan'
 import Timeline from './Timeline'
+import Members from './Members'
 
 export default function Team({ team, onBack }: { team: TeamT; onBack: () => void }) {
   const [view, setView] = useState<'tl' | 'plan'>('tl')
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
+  const [people, setPeople] = useState(false)
   const [err, setErr] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -35,6 +37,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
       <p><button className="ghost" onClick={onBack}>← Teams</button></p>
       <div className="head"><h1>{team.name}</h1>
         <div className="acts">
+          {team.role === 'admin' && <button className="ghost" aria-expanded={people} onClick={() => setPeople(!people)}>Team</button>}
           {team.role === 'admin' && <button className="ghost" aria-expanded={picking} onClick={() => setPicking(!picking)}>Farben</button>}
           <div className="seg" role="group" aria-label="Ansicht">
             <button aria-pressed={view === 'tl'} onClick={() => setView('tl')}>Zeitleiste</button>
@@ -49,6 +52,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
           {err && <p className="err" role="alert">{err}</p>}
         </div>
       )}
+      {people && <Members team={team} />}
       {view === 'tl' ? <Timeline team={team} /> : <Plan team={team} />}
     </main>
   )

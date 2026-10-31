@@ -93,3 +93,7 @@ button.danger{background:var(--rot)}
 .tm{width:100%;border-collapse:collapse}.tm th{text-align:left;font-size:12px}.tm td{padding:4px 4px 4px 0}.tm input.num{width:4.5rem}
 .color{display:flex;flex-direction:row;align-items:center;gap:8px}.color input{padding:0;width:44px;min-height:36px}
 .plan svg{pointer-events:none}
+
+.members ul{list-style:none;padding:0;margin:0 0 1rem}
+.members li{display:flex;gap:.75rem;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--kreide)}
+.members form{display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap}
