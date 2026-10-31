@@ -76,6 +76,8 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   const canBook = team.role !== 'viewer'
   const { rule, save: saveRule, err: ruleErr } = useDayRule(team.id, day)
   const [guests, setGuests] = useState<Guest[]>([])
+  const [hours, setHours] = useState(DEFAULT_HOURS)
+  useEffect(() => { supabase.from('teams').select('settings').eq('id', team.id).single().then(({ data }) => { const h = (data?.settings as { hours?: { from: number; to: number } } | undefined)?.hours; if (h) setHours(h) }) }, [team.id])
   useEffect(() => { supabase.from('guests').select('*').eq('team_id', team.id).order('name').then(({ data }) => setGuests((data as Guest[] | null) ?? [])) }, [team.id])
   const planRef = useRef<HTMLDivElement>(null)
 
@@ -408,6 +410,13 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
                 aria-label={`Tisch ${t.label}, ${t.min_seats} bis ${t.max_seats} Personen${t.online_bookable ? '' : ', nur Team'}`}
               >
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
+                {!edit && dayRes.some(r => r.table_id === t.id || r.alt_table_id === t.id) && (
+                  <em className="tstrip" title="Belegung am Abend">
+                    {dayRes.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => (
+                      <i key={r.id} className={r.table_id === t.id ? '' : 'alt'} style={{ left: `${Math.max(0, ((r.start_min - hours.from) / (hours.to - hours.from)) * 100)}%`, width: `${(r.duration_min / (hours.to - hours.from)) * 100}%` }} />
+                    ))}
+                  </em>
+                )}
               </div>
             ))}
             {edit && shape && wallPts.length > 0 && (
