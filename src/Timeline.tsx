@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
-import { RoomDelete, RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomSettings, RoomTabs } from './RoomTabs'
 import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, suggest, tableBusy } from './booking'
 
 const DEFAULT_HOURS = { from: 1080, to: 1380 }
@@ -108,7 +108,7 @@ export default function Timeline({ team }: { team: Team }) {
         <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (rule?.note ?? '') && saveRule({ note: note.trim() || null })} />
       </label>
 
-      <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} />
+      <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
       {manage && room && (
         <>
           <RoomSettings room={room} showSize={false} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
@@ -152,7 +152,6 @@ export default function Timeline({ team }: { team: Team }) {
         ))}
         {rows.length === 0 && <p className="soft pad">Noch keine Tische in diesem Bereich.</p>}
       </div>
-      {manage && room && <RoomDelete room={room} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />}
       <p className="legend"><span><i className="swb" />Reservierung</span><span><i className="swb dashed" />Wetter-Reserve (Tisch draußen reserviert für Regen)</span><span><i className="sw black" />Nur Team</span></p>
 
       {dlg?.kind === 'new' && room && (

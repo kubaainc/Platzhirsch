@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { supabase, type Room } from './supabase'
 
 /** Bereiche als Tabs. Im Bearbeitungsmodus erscheint rechts daneben ein „+“ für neue Bereiche. */
-export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: {
-  teamId: string; rooms: Room[]; roomId: string; onSelect: (id: string) => void; showAdd: boolean; onAdded: (r: Room) => void
+export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded, onDeleted }: {
+  teamId: string; rooms: Room[]; roomId: string; onSelect: (id: string) => void; showAdd: boolean; onAdded: (r: Room) => void; onDeleted: (id: string) => void
 }) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
@@ -12,6 +12,14 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: 
   const [h, setH] = useState(800)
   const [err, setErr] = useState('')
   const clamp = (v: number) => Math.max(300, Math.min(4000, Math.round(v) || 300))
+  async function del(room: Room) {
+    setErr('')
+    const { count } = await supabase.from('tables').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
+    if (!window.confirm(`Bereich „${room.name}“ mit ${count ?? 0} Tischen wirklich löschen? Reservierungen an diesen Tischen verlieren ihren Tisch.`)) return
+    const { error } = await supabase.from('rooms').delete().eq('id', room.id)
+    if (error) return setErr(error.message)
+    onDeleted(room.id)
+  }
   async function add(e: FormEvent) {
     e.preventDefault(); setErr('')
     const sort = Math.max(-1, ...rooms.map(r => r.sort)) + 1
@@ -22,9 +30,15 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: 
   return (
     <>
       <div className="tabs" role="tablist">
-        {rooms.map(r => <button key={r.id} role="tab" aria-selected={r.id === roomId} className={r.id === roomId ? 'on' : ''} onClick={() => onSelect(r.id)}>{r.name}</button>)}
+        {rooms.map(r => (
+          <span key={r.id} className="tabwrap">
+            <button role="tab" aria-selected={r.id === roomId} className={r.id === roomId ? 'on' : ''} onClick={() => onSelect(r.id)}>{r.name}</button>
+            {showAdd && r.id === roomId && <button className="tabx" aria-label={`Bereich ${r.name} löschen`} title="Bereich löschen" onClick={() => del(r)}>×</button>}
+          </span>
+        ))}
         {showAdd && <button className="plus" aria-label="Bereich hinzufügen" aria-expanded={adding} onClick={() => setAdding(!adding)}>+</button>}
       </div>
+      {err && !adding && <p className="err" role="alert">{err}</p>}
       {showAdd && adding && (
         <form className="pp" onSubmit={add}>
           <label>Name des Bereichs<input required autoFocus value={name} maxLength={30} placeholder="z. B. Lounge" onChange={e => setName(e.target.value)} /></label>
@@ -60,24 +74,5 @@ export function RoomSettings({ room, showSize, onChange }: { room: Room; showSiz
       {showSize && <>{num('width')}{num('height')}</>}
       {err && <p className="err" role="alert">{err}</p>}
     </div>
-  )
-}
-
-/** Löschen eines Bereichs, bewusst abseits der Einstellungen (unter dem Plan bzw. der Zeitleiste). */
-export function RoomDelete({ room, onDeleted }: { room: Room; onDeleted: (id: string) => void }) {
-  const [err, setErr] = useState('')
-  async function del() {
-    setErr('')
-    const { count } = await supabase.from('tables').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
-    if (!window.confirm(`Bereich „${room.name}“ mit ${count ?? 0} Tischen wirklich löschen? Reservierungen an diesen Tischen verlieren ihren Tisch.`)) return
-    const { error } = await supabase.from('rooms').delete().eq('id', room.id)
-    if (error) return setErr(error.message)
-    onDeleted(room.id)
-  }
-  return (
-    <p className="zone">
-      <button className="ghost danger-text" type="button" onClick={del}>Bereich „{room.name}“ löschen</button>
-      {err && <span className="err" role="alert"> {err}</span>}
-    </p>
   )
 }

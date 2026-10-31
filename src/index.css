@@ -123,8 +123,6 @@ label.inl input{min-height:0}
 .vtx{width:18px;height:18px;min-height:0;border-radius:50%;background:var(--surface);border:2px solid var(--rot);cursor:move}
 .vtx.sel{background:var(--rot)}
 .mid{width:16px;height:16px;min-height:0;border-radius:50%;background:var(--surface);color:var(--rot);border:1px dashed var(--rot);font-size:12px;line-height:1;cursor:copy;opacity:.7}
-.zone{margin-top:24px}
-button.danger-text{color:var(--rot);border-color:var(--rot);min-height:36px}
 
 /* Angleichung an die Vorschau: Kopfleiste, Karten, Beschriftungen */
 .topbar{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 16px;background:var(--bar-bg);color:var(--bar-fg)}
@@ -182,3 +180,6 @@ li{background:var(--surface);border:1px solid var(--line);border-radius:4px}
 .note.warn{border-left-color:var(--rot)}
 .note.good{border-left-color:#5E8F6A}
 textarea{width:100%}
+.tabwrap{display:inline-flex;align-items:stretch}
+.tabs .tabx{min-height:0;padding:0 8px;margin-left:-14px;font-size:16px;letter-spacing:normal;color:var(--soft);align-self:center;background:none;border:0}
+.tabs .tabx:hover:not(:disabled){background:none;color:var(--rot)}
