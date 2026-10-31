@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomDelete, RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomSettings, RoomTabs } from './RoomTabs'
 import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { isoDay, tableBusy } from './booking'
 
@@ -277,9 +277,9 @@ export default function Plan({ team }: { team: Team }) {
   return (
     <>
       <div className="bar">
-        <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} />
+        <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
         {canEdit && (edit
-          ? <div className="acts"><button onClick={done}>Fertig</button><button className="ghost" onClick={cancel}>Abbrechen</button></div>
+          ? <div className="acts"><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></div>
           : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Plan bearbeiten</button>)}
       </div>
       {!room ? <p>Noch kein Bereich angelegt.</p> : (
@@ -427,7 +427,6 @@ export default function Plan({ team }: { team: Team }) {
               </>
             )}
           </div>
-          {edit && <RoomDelete room={room} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />}
           {unplaced.length > 0 && <p>Nicht platziert: {unplaced.map(t => t.label).join(', ')}</p>}
         </>
       )}
