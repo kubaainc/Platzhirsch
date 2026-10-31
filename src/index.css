@@ -156,33 +156,61 @@ li{background:var(--surface);border:1px solid var(--line);border-radius:2px}
 .toast{border-radius:2px}
 .legend{color:var(--text)}
 
-/* Öffentliche Reservierungsseite (Gästeseite der Vorschau) */
-.gast{max-width:600px}
-.kicker{font-family:var(--font-display);letter-spacing:.01em;font-size:12px;font-weight:700;color:var(--rot);margin:0 0 8px}
-.step{padding-block:24px;border-top:1px solid var(--line);display:grid;gap:12px}
-.step:first-child{border-top:0}
-.step-h{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
-.step-h h2{margin:0;display:flex;gap:12px;align-items:baseline}
-.step-h h2 i{font-style:normal;color:var(--rot);font-family:var(--font-display);font-variant-numeric:tabular-nums}
-.step-h span{font-size:14px;color:var(--soft);text-align:right}
-.pers{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:8px}
-.pers button{min-height:48px;padding:0;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:var(--font-display);font-size:16px;letter-spacing:normal;font-weight:500}
-.pers button:hover:not(:disabled){background:var(--surface-alt);border-color:var(--line-strong)}
-.pers button[aria-pressed=true]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
-.slotlist{display:grid}
-.slot{display:grid;grid-template-columns:4.2rem minmax(0,1fr) auto;gap:16px;align-items:center;min-height:58px;padding:0 16px;border:1px solid var(--line);border-radius:0;background:var(--surface);color:var(--ink);text-align:left;font-family:var(--font-display);text-transform:none;letter-spacing:normal;font-weight:400;font-size:14px}
-.slot+.slot{margin-top:-1px}
-.slot b{font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
-.slot:hover:not(:disabled){background:var(--surface-alt);border-color:var(--line)}
-.slot[aria-pressed=true]{border-color:var(--rot);box-shadow:inset 3px 0 0 var(--rot);background:var(--rot-wash);z-index:1}
-.slot:disabled{color:var(--soft);cursor:not-allowed;opacity:.7}
-.meter{height:4px;background:var(--line-soft);border-radius:2px;overflow:hidden}
-.meter i{display:block;height:100%;background:var(--ink)}
-.meter i.hot{background:var(--rot)}
-.slot .st{text-align:right;min-width:7.5rem}
-.note{margin:0;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--rot);font-size:14px}
-.note.warn{border-left-color:var(--err)}
-.note.good{border-left-color:var(--ok)}
+/* Öffentliche Reservierungsseite: eine Karte mit drei Schritten, einbettbar (?transparent=1) */
+.gast{max-width:520px}
+.g-card{background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.g-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 20px 16px;border-bottom:1px solid var(--line)}
+.g-head h1{margin:0}
+.kicker{font-size:12px;color:var(--soft);margin:0 0 4px}
+.g-steps{display:flex;gap:6px;padding-top:8px}
+.g-steps i{width:28px;height:4px;border-radius:2px;background:var(--line)}
+.g-steps i.on{background:var(--rot)}
+.g-body{padding:20px;display:grid;gap:20px}
+.g-field{display:grid;gap:8px;font-size:14px;font-weight:500;color:var(--ink)}
+.g-l{font-size:13px;font-weight:600;color:var(--soft)}
+.g-field input,.g-field textarea,.g-inline input{width:100%;background:transparent;color:var(--ink)}
+.g-opts{display:flex;flex-wrap:wrap;gap:8px}
+.g-opts button,.g-days button,.g-slot,.g-alt{background:transparent;color:var(--ink);border:1px solid var(--line-strong);font-family:var(--font-display);font-weight:500;letter-spacing:normal;text-transform:none}
+.g-opts button:hover:not(:disabled),.g-days button:hover:not(:disabled),.g-slot:hover:not(:disabled){background:var(--surface-alt);border-color:var(--line-strong)}
+.g-n{min-width:48px;min-height:48px;padding:0;font-family:var(--font-mono);font-size:16px}
+.g-chip{min-height:44px;padding:0 14px;font-size:14px}
+.g-opts button[aria-pressed=true],.g-days button[aria-pressed=true],.g-slot[aria-pressed=true],.g-opts button[aria-pressed=true]:hover:not(:disabled),.g-days button[aria-pressed=true]:hover:not(:disabled),.g-slot[aria-pressed=true]:hover:not(:disabled){background:var(--rot);border-color:var(--rot);color:var(--on-rot)}
+.g-inline{display:flex;flex-direction:row;align-items:center;gap:12px;font-size:14px;font-weight:500}
+.g-inline input{width:6rem}
+.g-days{display:grid;grid-auto-flow:column;grid-auto-columns:64px;gap:8px;overflow-x:auto;padding-bottom:6px}
+.g-days button{display:grid;gap:0;min-height:68px;padding:6px 0;line-height:1.2;font-family:var(--font-mono)}
+.g-days small{font-size:11px;font-family:var(--font-display);opacity:.85}
+.g-days b{font-size:16px}
+.g-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.g-slot{position:relative;min-height:48px;padding:0;font-family:var(--font-mono);font-size:15px;font-variant-numeric:tabular-nums}
+.g-slot.few::after{content:"";position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--rot)}
+.g-slot.few[aria-pressed=true]::after{background:var(--on-rot)}
+.g-slot.full{text-decoration:line-through;color:var(--soft);border-style:dashed;opacity:.8}
+.g-legend{margin:0;font-size:12px;color:var(--soft);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.g-legend .d{width:7px;height:7px;border-radius:50%;background:var(--rot);display:inline-block}
+.g-note{margin:0;padding:12px 14px;border:1px solid var(--line);border-left:3px solid var(--rot);font-size:14px;color:var(--ink)}
+.g-note.warn{border-left-color:var(--err)}
+.g-note.good{border-left-color:var(--ok)}
+.g-alt{min-height:32px;padding:0 10px;margin-left:6px;font-size:13px;font-family:var(--font-mono)}
+button.g-alt{background:transparent;color:var(--ink)}
+.g-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.g-two{grid-template-columns:1fr}}
+.g-soft{margin:0;font-size:13px;color:var(--soft)}
+.g-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--line);margin-top:4px;padding-top:16px}
+.g-sum{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0}
+.g-sum dt{color:var(--soft)}.g-sum dd{margin:0;font-weight:500}
+
+/* Transparent einbetten: kein Hintergrund, Farben nur aus Text und Akzent; ?theme=dark für dunkle Seiten */
+html.g-clear,html.g-clear body,html.g-clear body:has(.gast){background:transparent!important}
+/* color-scheme bleibt immer light, sonst malt der Browser den iframe undurchsichtig, wenn die Host-Seite anders eingestellt ist */
+html.g-clear{color-scheme:light}
+.gast.clear{max-width:none;padding:0}
+.gast.clear .g-card{background:transparent;border:0}
+.gast.clear .g-head{border-bottom-color:var(--line-strong);padding-inline:0}
+.gast.clear .g-body{padding-inline:0}
+.gast.clear :where(.g-note){background:transparent}
+html.g-clear .gast{--ink:#141816;--soft:#4A514B;--line:rgba(20,24,22,.25);--line-strong:rgba(20,24,22,.55);--surface-alt:rgba(20,24,22,.08);--rot:#A66300;--on-rot:#fff;--err:#B3382C;--ok:#1F7A4A;color:var(--ink)}
+html.g-clear.g-dark .gast{--ink:#E8ECE6;--soft:#B3BBB4;--line:rgba(232,236,230,.28);--line-strong:rgba(232,236,230,.6);--surface-alt:rgba(232,236,230,.1);--rot:#F0B232;--on-rot:#1A1200;--err:#F29A90;--ok:#52C28A}
 textarea{width:100%}
 .tabwrap{display:inline-flex;align-items:stretch}
 .tabs .tabx{min-height:0;padding:0 8px;margin-left:-14px;font-size:16px;letter-spacing:normal;color:var(--soft);align-self:center;background:none;border:0}

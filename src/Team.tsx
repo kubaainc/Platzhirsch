@@ -11,6 +11,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
   const [picking, setPicking] = useState(false)
   const [editing, setEditing] = useState(false)
   const [people, setPeople] = useState(false)
+  const [embedBg, setEmbedBg] = useState('')
   const [err, setErr] = useState('')
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -68,6 +69,13 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
         <section className="pp" aria-label="Einbinden">
           <h2>Auf der Restaurant-Seite einbinden</h2>
           <p>Link zur Reservierungsseite: <a href={`${location.origin}/b/${team.slug}`} target="_blank" rel="noreferrer">{`${location.origin}/b/${team.slug}`}</a></p>
+          <label>Hintergrund
+            <select value={embedBg} onChange={e => setEmbedBg(e.target.value)}>
+              <option value="">Mit Hintergrund</option>
+              <option value="?transparent=1">Transparent, helle Seite</option>
+              <option value="?transparent=1&theme=dark">Transparent, dunkle Seite</option>
+            </select>
+          </label>
           <p>Zum Einfügen in die Seite des Restaurants (HTML):</p>
           <h2>Online-Regeln</h2>
           <div className="rules">
@@ -77,7 +85,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
             <label>Aufenthalt in Minuten<input type="number" min={30} max={480} step={15} value={num('stay_minutes', 120)} onChange={e => saveSetting('stay_minutes', Number(e.target.value))} /></label>
           </div>
           {err && <p className="err" role="alert">{err}</p>}
-          <textarea readOnly rows={3} value={`<iframe src="${location.origin}/b/${team.slug}" title="Tisch reservieren" style="width:100%;max-width:560px;height:760px;border:0"></iframe>`} onFocus={e => e.target.select()} />
+          <textarea readOnly rows={3} value={`<iframe src="${location.origin}/b/${team.slug}${embedBg}" title="Tisch reservieren" style="width:100%;max-width:560px;height:820px;border:0" allowtransparency="true"></iframe>`} onFocus={e => e.target.select()} />
         </section>
       )}
       {people && <Members team={team} />}
