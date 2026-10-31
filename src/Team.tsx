@@ -33,13 +33,18 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
   const num = (k: string, d: number) => (typeof settings[k] === 'number' ? (settings[k] as number) : d)
   const hmIn = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
   const toMin = (v: string) => { const [h, m] = v.split(':').map(Number); return h * 60 + (m || 0) }
-  async function saveSetting(k: string, v: number) {
-    if (!Number.isFinite(v)) return
+  async function saveSetting(k: string, v: number | number[]) {
+    if (typeof v === 'number' && !Number.isFinite(v)) return
     setErr('')
     const next = { ...settings, [k]: v }
     setSettings(next)
     const { error } = await supabase.from('teams').update({ settings: next }).eq('id', team.id)
     if (error) setErr(error.message)
+  }
+  const openDays = Array.isArray(settings.open_days) ? (settings.open_days as number[]) : [1, 2, 3, 4, 5, 6, 7]
+  const toggleDay = (d: number) => {
+    const next = openDays.includes(d) ? openDays.filter(x => x !== d) : [...openDays, d].sort()
+    if (next.length) saveSetting('open_days', next)
   }
   const vars = { '--c-free': colors.free, '--c-busy': colors.busy, '--c-res': colors.reserve } as CSSProperties
   const field = (k: keyof Colors, label: string) => (
@@ -66,29 +71,39 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
         </div>
       )}
       {people && (
-        <section className="pp" aria-label="Einbinden">
-          <h2>Auf der Restaurant-Seite einbinden</h2>
-          <p>Link zur Reservierungsseite: <a href={`${location.origin}/b/${team.slug}`} target="_blank" rel="noreferrer">{`${location.origin}/b/${team.slug}`}</a></p>
-          <label>Hintergrund
-            <select value={embedBg} onChange={e => setEmbedBg(e.target.value)}>
-              <option value="">Mit Hintergrund</option>
-              <option value="?transparent=1">Transparent, helle Seite</option>
-              <option value="?transparent=1&theme=dark">Transparent, dunkle Seite</option>
-            </select>
-          </label>
-          <p>Zum Einfügen in die Seite des Restaurants (HTML):</p>
-          <h2>Online-Regeln</h2>
-          <div className="rules">
-            <label>Erste Startzeit<input type="time" step={3600} value={hmIn(num('open_from', 1080))} onChange={e => saveSetting('open_from', toMin(e.target.value))} /></label>
-            <label>Ende (Tisch frei bis)<input type="time" step={3600} value={hmIn(num('open_to', 1320))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
-            <label>Vorlauf in Stunden<input type="number" min={0} max={720} value={num('online_lead_hours', 24)} onChange={e => saveSetting('online_lead_hours', Number(e.target.value))} /></label>
-            <label>Aufenthalt in Minuten<input type="number" min={30} max={480} step={15} value={num('stay_minutes', 120)} onChange={e => saveSetting('stay_minutes', Number(e.target.value))} /></label>
-          </div>
-          {err && <p className="err" role="alert">{err}</p>}
-          <textarea readOnly rows={3} value={`<iframe src="${location.origin}/b/${team.slug}${embedBg}" title="Tisch reservieren" style="width:100%;max-width:560px;height:820px;border:0" allowtransparency="true"></iframe>`} onFocus={e => e.target.select()} />
-        </section>
+        <div className="stamm">
+          <section aria-label="Öffnungstage und Online-Regeln">
+            <h2>Öffnungstage und Online-Regeln</h2>
+            <div className="wdays" role="group" aria-label="Öffnungstage">
+              {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((t, i) => (
+                <button key={t} aria-pressed={openDays.includes(i + 1)} onClick={() => toggleDay(i + 1)}>{t}</button>
+              ))}
+            </div>
+            <p><small>Ausgeschaltete Tage sind online nicht buchbar. Telefonisch und im Team geht weiterhin alles.</small></p>
+            <div className="rules">
+              <label>Erste Startzeit<input type="time" step={3600} value={hmIn(num('open_from', 1080))} onChange={e => saveSetting('open_from', toMin(e.target.value))} /></label>
+              <label>Ende (Tisch frei bis)<input type="time" step={3600} value={hmIn(num('open_to', 1320))} onChange={e => saveSetting('open_to', toMin(e.target.value))} /></label>
+              <label>Vorlauf in Stunden<input type="number" min={0} max={720} value={num('online_lead_hours', 24)} onChange={e => saveSetting('online_lead_hours', Number(e.target.value))} /></label>
+              <label>Aufenthalt in Minuten<input type="number" min={30} max={480} step={15} value={num('stay_minutes', 120)} onChange={e => saveSetting('stay_minutes', Number(e.target.value))} /></label>
+            </div>
+            {err && <p className="err" role="alert">{err}</p>}
+          </section>
+          <section aria-label="Einbinden">
+            <h2>Reservierungsseite einbinden</h2>
+            <p>Link: <a href={`${location.origin}/b/${team.slug}`} target="_blank" rel="noreferrer">{`${location.origin}/b/${team.slug}`}</a></p>
+            <label>Hintergrund
+              <select value={embedBg} onChange={e => setEmbedBg(e.target.value)}>
+                <option value="">Mit Hintergrund</option>
+                <option value="?transparent=1">Transparent, helle Seite</option>
+                <option value="?transparent=1&theme=dark">Transparent, dunkle Seite</option>
+              </select>
+            </label>
+            <p>Zum Einfügen in die Seite des Restaurants (HTML):</p>
+            <textarea readOnly rows={3} value={`<iframe src="${location.origin}/b/${team.slug}${embedBg}" title="Tisch reservieren" style="width:100%;max-width:560px;height:820px;border:0" allowtransparency="true"></iframe>`} onFocus={e => e.target.select()} />
+          </section>
+          <Members team={team} />
+        </div>
       )}
-      {people && <Members team={team} />}
       {view === 'tl' ? <Timeline team={team} onEditing={setEditing} /> : <Plan team={team} onEditing={setEditing} />}
     </main>
   )
