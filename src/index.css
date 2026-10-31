@@ -115,3 +115,11 @@ label.inl input{min-height:0}
 .tb.busy{background:color-mix(in srgb,var(--c-busy,#9A3334) 25%,#fff);border-color:var(--c-busy,#9A3334)}
 .tb.dim{opacity:.12}
 .tb.black.busy{background:#161614;outline:2px solid var(--c-busy,#9A3334)}
+
+.shape{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.vtx,.mid{position:absolute;transform:translate(-50%,-50%);padding:0;touch-action:none;z-index:5}
+.vtx{width:18px;height:18px;min-height:0;border-radius:50%;background:var(--surface);border:2px solid var(--rot);cursor:move}
+.vtx.sel{background:var(--rot)}
+.mid{width:16px;height:16px;min-height:0;border-radius:50%;background:var(--surface);color:var(--rot);border:1px dashed var(--rot);font-size:12px;line-height:1;cursor:copy;opacity:.7}
+.zone{margin-top:24px}
+button.danger-text{color:var(--rot);border-color:var(--rot);min-height:36px}

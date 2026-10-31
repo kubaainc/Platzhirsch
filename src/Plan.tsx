@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomDelete, RoomSettings, RoomTabs } from './RoomTabs'
 import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { isoDay, tableBusy } from './booking'
 
@@ -12,6 +12,13 @@ const FORMS: [string, string, number, number, boolean][] = [
   ['oval', 'Oval breit', 556, 80, true],
 ]
 const SNAP_PX = 7
+type Pt = { x: number; y: number }
+const parsePath = (d: string): Pt[] => {
+  const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number), pts: Pt[] = []
+  for (let i = 0; i + 1 < n.length; i += 2) pts.push({ x: n[i], y: n[i + 1] })
+  return pts
+}
+const toPath = (pts: Pt[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${Math.round(p.x)},${Math.round(p.y)}`).join(' ') + ' Z'
 const normRot = (r: number) => ((Math.round(r) + 180) % 360 + 360) % 360 - 180
 const tableKeys = ['label', 'min_seats', 'max_seats', 'online_bookable', 'placed', 'x', 'y', 'w', 'h', 'rot', 'round'] as const
 const same = (a: TableRow, b: TableRow) => tableKeys.every(k => a[k] === b[k])
@@ -54,6 +61,9 @@ export default function Plan({ team }: { team: Team }) {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [preName, setPreName] = useState('')
+  const [shape, setShape] = useState(false)
+  const [selVtx, setSelVtx] = useState<number | null>(null)
+  useEffect(() => { if (!edit) setShape(false) }, [edit])
   const [occ, setOcc] = useState(false)
   const [occDay, setOccDay] = useState(isoDay(new Date()))
   const [occTime, setOccTime] = useState('19:00')
@@ -135,6 +145,50 @@ export default function Plan({ team }: { team: Team }) {
     const { data, error } = await supabase.from('room_elements').insert({ team_id: team.id, room_id: roomId, kind: 'rect', ...center(), w: 120, h: 80, rot: 0 }).select().single()
     if (error) return setErr(error.message)
     setElements(es => [...es, data as RoomElement]); setSelEl((data as RoomElement).id); setSel(null)
+  }
+  const wall = elements.find(x => x.room_id === roomId && x.kind === 'wall' && x.path)
+  const wallPts = wall ? parsePath(wall.path!) : []
+  async function createWall() {
+    setErr('')
+    const m = 20, path = toPath([{ x: m, y: m }, { x: room!.width - m, y: m }, { x: room!.width - m, y: room!.height - m }, { x: m, y: room!.height - m }])
+    const { data, error } = await supabase.from('room_elements').insert({ team_id: team.id, room_id: roomId, kind: 'wall', path }).select().single()
+    if (error) return setErr(error.message)
+    setElements(es => [...es, data as RoomElement]); setShape(true)
+  }
+  function setPts(pts: Pt[], save: boolean) {
+    if (!wall) return
+    const path = toPath(pts)
+    updEl(wall.id, { path })
+    if (save) saveEl(wall.id, { path })
+  }
+  function startDragVtx(e: RPointerEvent, i: number, pts: Pt[]) {
+    e.stopPropagation(); e.preventDefault()
+    setSelVtx(i)
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    let cur = pts
+    const move = (ev: PointerEvent) => {
+      const p = toRoom(ev)
+      let x = Math.max(0, Math.min(room!.width, p.x)), y = Math.max(0, Math.min(room!.height, p.y))
+      if (!ev.altKey) {
+        const near = SNAP_PX * p.scale
+        for (const o of cur.filter((_, j) => j !== i)) { if (Math.abs(o.x - x) <= near) x = o.x; if (Math.abs(o.y - y) <= near) y = o.y }
+        if (Math.abs(x - 0) <= near) x = 0; if (Math.abs(y - 0) <= near) y = 0
+      }
+      cur = cur.map((q, j) => (j === i ? { x, y } : q)); setPts(cur, false)
+    }
+    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); setPts(cur, true) }
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up)
+  }
+  function insertVtx(e: RPointerEvent, i: number, pts: Pt[]) {
+    e.stopPropagation(); e.preventDefault()
+    const a = pts[i], b = pts[(i + 1) % pts.length]
+    const next = [...pts.slice(0, i + 1), { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, ...pts.slice(i + 1)]
+    setPts(next, true); setSelVtx(i + 1)
+  }
+  function delVtx() {
+    if (selVtx === null || wallPts.length <= 3) return
+    setPts(wallPts.filter((_, j) => j !== selVtx), true); setSelVtx(null)
   }
   async function delElement(id: string) {
     const { error } = await supabase.from('room_elements').delete().eq('id', id)
@@ -303,7 +357,18 @@ export default function Plan({ team }: { team: Team }) {
           })()}
           {edit && !selected && !selEl && room && (
             <>
-              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
+              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
+              <div className="shape">
+                {!wall
+                  ? <button className="ghost" onClick={createWall}>Raumform anlegen (Wände)</button>
+                  : <button className="ghost" aria-pressed={shape} onClick={() => { setShape(!shape); setSelVtx(null) }}>{shape ? 'Raumform fertig' : 'Raumform bearbeiten'}</button>}
+                {shape && wall && (
+                  <>
+                    <button className="ghost" disabled={selVtx === null || wallPts.length <= 3} onClick={delVtx}>Ausgewählte Ecke löschen</button>
+                    <span className="soft">Ecken ziehen, am „+“ zwischen zwei Ecken eine neue Ecke einfügen. Alt schaltet das Einrasten aus.</span>
+                  </>
+                )}
+              </div>
               <p className="soft">Tisch oder graues Element antippen und ziehen, am Kreis drehen. Alt schaltet das Einrasten aus.</p>
             </>
           )}
@@ -337,6 +402,19 @@ export default function Plan({ team }: { team: Team }) {
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
               </div>
             ))}
+            {edit && shape && wallPts.length > 0 && (
+              <>
+                {wallPts.map((p, i) => {
+                  const q = wallPts[(i + 1) % wallPts.length]
+                  return <button type="button" key={`m${i}`} className="mid" aria-label={`Punkt zwischen Ecke ${i + 1} und ${((i + 1) % wallPts.length) + 1} einfügen`}
+                    style={{ left: `${(((p.x + q.x) / 2) / room.width) * 100}%`, top: `${(((p.y + q.y) / 2) / room.height) * 100}%` }} onPointerDown={e => insertVtx(e, i, wallPts)}>+</button>
+                })}
+                {wallPts.map((p, i) => (
+                  <button type="button" key={`v${i}`} className={`vtx${i === selVtx ? ' sel' : ''}`} aria-label={`Ecke ${i + 1} verschieben`}
+                    style={{ left: `${(p.x / room.width) * 100}%`, top: `${(p.y / room.height) * 100}%` }} onPointerDown={e => startDragVtx(e, i, wallPts)} />
+                ))}
+              </>
+            )}
             {knob && selected && (
               <>
                 <button
@@ -349,6 +427,7 @@ export default function Plan({ team }: { team: Team }) {
               </>
             )}
           </div>
+          {edit && <RoomDelete room={room} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />}
           {unplaced.length > 0 && <p>Nicht platziert: {unplaced.map(t => t.label).join(', ')}</p>}
         </>
       )}
