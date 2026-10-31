@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type Team } from './supabase'
 import TeamView from './Team'
+import { LOOKS, getLook, setLook, type Look } from './look'
 
 const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -96,8 +97,17 @@ export default function App() {
   if (session === undefined) return null
   return session ? (
     <>
-      <header className="topbar"><b>Platzhirsch</b><span>{session.user.email}</span><button onClick={() => supabase.auth.signOut()}>Abmelden</button></header>
+      <header className="topbar"><b>Platzhirsch</b><span>{session.user.email}</span><LookSelect /><button onClick={() => supabase.auth.signOut()}>Abmelden</button></header>
       <Teams session={session} />
     </>
   ) : <Login />
+}
+
+function LookSelect() {
+  const [look, setL] = useState<Look>(getLook())
+  return (
+    <select className="look" aria-label="Design" value={look} onChange={e => { const l = e.target.value as Look; setL(l); setLook(l) }}>
+      {(Object.keys(LOOKS) as Look[]).map(k => <option key={k} value={k}>{LOOKS[k]}</option>)}
+    </select>
+  )
 }

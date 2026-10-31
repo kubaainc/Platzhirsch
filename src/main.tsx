@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import Public from './Public.tsx'
+import { getLook, setLook } from './look.ts'
+
+setLook(getLook())
 
 const pub = location.pathname.match(/^\/b\/([a-z0-9-]+)\/?$/)
 
