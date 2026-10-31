@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { DEFAULT_COLORS, supabase, type Colors, type Team as TeamT } from './supabase'
 import Plan from './Plan'
 import Timeline from './Timeline'
@@ -9,6 +9,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
   const [err, setErr] = useState('')
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     supabase.from('teams').select('settings').eq('id', team.id).single().then(({ data }) => {
@@ -27,7 +28,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
 
   const vars = { '--c-free': colors.free, '--c-busy': colors.busy, '--c-res': colors.reserve } as CSSProperties
   const field = (k: keyof Colors, label: string) => (
-    <label className="color">{label}<input type="color" value={colors[k]} onChange={e => setColors({ ...colors, [k]: e.target.value })} onBlur={() => saveColors(colors)} /></label>
+    <label className="color">{label}<input type="color" value={colors[k]} onChange={e => { const c = { ...colors, [k]: e.target.value }; setColors(c); clearTimeout(timer.current); timer.current = setTimeout(() => saveColors(c), 600) }} /></label>
   )
   return (
     <main className="wide" style={vars}>

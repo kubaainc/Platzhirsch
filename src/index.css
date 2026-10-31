@@ -92,3 +92,4 @@ button.danger{background:var(--rot)}
 .el.sel{outline:2px solid var(--rot);outline-offset:2px}
 .tm{width:100%;border-collapse:collapse}.tm th{text-align:left;font-size:12px}.tm td{padding:4px 4px 4px 0}.tm input.num{width:4.5rem}
 .color{display:flex;flex-direction:row;align-items:center;gap:8px}.color input{padding:0;width:44px;min-height:36px}
+.plan svg{pointer-events:none}
