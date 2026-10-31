@@ -414,7 +414,6 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
                   left: `${(t.x! / room.width) * 100}%`, top: `${(t.y! / room.height) * 100}%`,
                   width: `${(t.w! / room.width) * 100}%`, height: `${(t.h! / room.height) * 100}%`,
                   transform: `translate(-50%,-50%) rotate(${t.rot}deg)`,
-                  ...(!edit && !busyNow(t.id) ? { background: timeFill(t) } : {}),
                 }}
                 onPointerDown={e => startDrag(e, t)}
                 onClick={!edit && canBook ? () => setBook({ table: t.id }) : undefined}
@@ -423,6 +422,12 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
                 onKeyDown={edit ? e => { if (e.key === 'Enter' || e.key === ' ') setSel(t.id) } : canBook ? e => { if (e.key === 'Enter' || e.key === ' ') setBook({ table: t.id }) } : undefined}
                 aria-label={`Tisch ${t.label}, ${t.min_seats} bis ${t.max_seats} Personen${t.online_bookable ? '' : ', nur Team'}`}
               >
+                {!edit && !busyNow(t.id) && (() => {
+                  const g = timeFill(t); if (!g) return null
+                  const a = (t.rot * Math.PI) / 180, c = Math.abs(Math.cos(a)), n = Math.abs(Math.sin(a))
+                  // Sichtbare Breite/Höhe des gedrehten Tisches, gegen die Drehung ausgerichtet: Zeitachse bleibt waagerecht
+                  return <i className="tfill" style={{ width: `${((t.w! * c + t.h! * n) / t.w!) * 100}%`, height: `${((t.w! * n + t.h! * c) / t.h!) * 100}%`, transform: `translate(-50%,-50%) rotate(${-t.rot}deg)`, background: g }} />
+                })()}
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
               </div>
             ))}
