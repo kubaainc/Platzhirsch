@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
-import { DayNav, DEFAULT_HOURS, NewReservation } from './Timeline'
+import { RoomSettings, RoomTabs } from './RoomTabs'
+import { DayHeader, DEFAULT_HOURS, NewReservation, useDayRule } from './Timeline'
 import { supabase, type DayRule, type Guest, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { roomClosed, tableBusy } from './booking'
 
@@ -74,6 +74,9 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   useEffect(() => { loadOcc() }, [day, team.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [book, setBook] = useState<{ table?: string } | null>(null)
   const canBook = team.role !== 'viewer'
+  const { rule, save: saveRule, err: ruleErr } = useDayRule(team.id, day)
+  const [guests, setGuests] = useState<Guest[]>([])
+  useEffect(() => { supabase.from('guests').select('*').eq('team_id', team.id).order('name').then(({ data }) => setGuests((data as Guest[] | null) ?? [])) }, [team.id])
   const planRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -277,16 +280,14 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
 
   return (
     <>
-      <div className="daybar">
-        <DayNav day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`} />
-        <span className="grow" />
-        {canBook && <button onClick={() => setBook({})}>Neue Reservierung</button>}
-      </div>
+      <DayHeader team={team} day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`}
+        rule={rule} saveRule={saveRule} ruleErr={ruleErr} guests={guests} room={room} onRoom={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))}
+        showLock={edit} onNew={() => setBook({})}
+        edit={canEdit && (edit
+          ? <div className="acts"><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></div>
+          : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>)} />
       <div className="bar">
         <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
-        {canEdit && (edit
-          ? <div className="acts"><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></div>
-          : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Plan bearbeiten</button>)}
       </div>
       {!room ? <p>Noch kein Bereich angelegt.</p> : (
         <>
@@ -364,7 +365,6 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
           {edit && !selected && !selEl && room && (
             <>
               <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
-              <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
               <div className="shape">
                 {!wall
                   ? <button className="ghost" onClick={createWall}>Raumform anlegen (Wände)</button>

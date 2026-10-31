@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, roomClosed, suggest, tableBusy } from './booking'
@@ -35,24 +35,77 @@ export function DayNav({ day, setDay, sub }: { day: string; setDay: (d: string) 
   )
 }
 
+/** Sperre und Hinweis für einen Tag (day_rules). */
+export function useDayRule(teamId: string, day: string) {
+  const [rule, setRule] = useState<DayRule | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    supabase.from('day_rules').select('*').eq('team_id', teamId).eq('day', day).maybeSingle()
+      .then(({ data, error }) => { if (error) setErr(error.message); setRule(data as DayRule | null) })
+  }, [teamId, day])
+  async function save(patch: Partial<DayRule>) {
+    setErr('')
+    const next = { team_id: teamId, day, blocked: rule?.blocked ?? false, note: rule?.note ?? null, ...patch }
+    const { error } = await supabase.from('day_rules').upsert(next)
+    if (error) return setErr(error.message)
+    setRule(next)
+  }
+  return { rule, save, err }
+}
+
+/** Kopfzeile in Zeitleiste und Raumplan: gleiche Knöpfe an gleicher Stelle. */
+export function DayHeader(p: {
+  team: Team; day: string; setDay: (d: string) => void; sub: string
+  rule: DayRule | null; saveRule: (patch: Partial<DayRule>) => void; ruleErr: string
+  guests: Guest[]; room?: Room; onRoom: (r: Room) => void
+  /** „Bearbeiten“ der jeweiligen Ansicht, nur wenn erlaubt */
+  edit: ReactNode; showLock: boolean; onNew: () => void
+}) {
+  const canWrite = p.team.role !== 'viewer'
+  const canManage = p.team.role === 'admin' || p.team.role === 'editor'
+  const blocked = !!p.rule?.blocked
+  const [lockOpen, setLockOpen] = useState(false)
+  const [guestsOpen, setGuestsOpen] = useState(false)
+  const [note, setNote] = useState('')
+  useEffect(() => { setNote(p.rule?.note ?? '') }, [p.rule?.note, p.day])
+  return (
+    <>
+      <div className="daybar">
+        <DayNav day={p.day} setDay={p.setDay} sub={p.sub} />
+        <span className="grow" />
+        <button className="ghost" onClick={() => setGuestsOpen(true)}>Gäste suchen</button>
+        {p.edit}
+        {canWrite && <button className="ghost" aria-pressed={blocked} onClick={() => p.saveRule({ blocked: !blocked })}>{blocked ? 'Tag entsperren' : 'Tag sperren'}</button>}
+        {canManage && <button className="ghost" aria-expanded={lockOpen} onClick={() => setLockOpen(!lockOpen)}>Bereich sperren</button>}
+        {canWrite && <button onClick={p.onNew}>Neue Reservierung</button>}
+      </div>
+      {(lockOpen || p.showLock) && p.room && <RoomLock room={p.room} onChange={p.onRoom} />}
+      {blocked && <p className="banner" role="status">Gesperrt: An diesem Tag sind keine Reservierungen möglich (z. B. Urlaub).</p>}
+      <label className="daynote">Hinweis für den Tag
+        <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (p.rule?.note ?? '') && p.saveRule({ note: note.trim() || null })} />
+      </label>
+      {p.ruleErr && <p className="err" role="alert">{p.ruleErr}</p>}
+      {guestsOpen && <GuestSearch team={p.team} guests={p.guests} onClose={() => setGuestsOpen(false)} />}
+    </>
+  )
+}
+
 export default function Timeline({ team, onEditing, day, setDay, slot }: { team: Team; onEditing: (e: boolean) => void; day: string; setDay: (d: string) => void; slot: number }) {
   const canWrite = team.role !== 'viewer'
   const canManage = team.role === 'admin' || team.role === 'editor'
   const [manage, setManage] = useState(false)
-  const [lockOpen, setLockOpen] = useState(false)
   useEffect(() => { onEditing(manage); return () => onEditing(false) }, [manage, onEditing])
   const [rooms, setRooms] = useState<Room[]>([])
   const [tables, setTables] = useState<TableRow[]>([])
   const [guests, setGuests] = useState<Guest[]>([])
   const [res, setRes] = useState<Reservation[]>([])
-  const [rule, setRule] = useState<DayRule | null>(null)
+  const { rule, save: saveRule, err: ruleErr } = useDayRule(team.id, day)
   const [hours, setHours] = useState(DEFAULT_HOURS)
   const [roomId, setRoomId] = useState('')
   const [ready, setReady] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
-  const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'guests' } | { kind: 'tables' }>(null)
-  const [note, setNote] = useState('')
+  const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'tables' }>(null)
   const drag = useRef<{ id: string; x0: number; y0: number; moved: boolean } | null>(null)
   const [off, setOff] = useState<{ id: string; dx: number; dy: number; table: string; ok: boolean } | null>(null)
 
@@ -74,12 +127,9 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   }, [team.id])
 
   const loadDay = useCallback(async () => {
-    const [a, b] = await Promise.all([
-      supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', day),
-      supabase.from('day_rules').select('*').eq('team_id', team.id).eq('day', day).maybeSingle(),
-    ])
-    if (a.error || b.error) return setErr((a.error || b.error)!.message)
-    setRes(a.data as Reservation[]); setRule(b.data as DayRule | null); setNote((b.data as DayRule | null)?.note ?? '')
+    const a = await supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', day)
+    if (a.error) return setErr(a.error.message)
+    setRes(a.data as Reservation[])
   }, [team.id, day])
   useEffect(() => { if (ready) loadDay() }, [ready, loadDay])
 
@@ -113,13 +163,6 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
     await loadDay()
   }
 
-  async function saveRule(patch: Partial<DayRule>) {
-    const next = { team_id: team.id, day, blocked: rule?.blocked ?? false, note: rule?.note ?? null, ...patch }
-    const { error } = await supabase.from('day_rules').upsert(next)
-    if (error) return setErr(error.message)
-    setRule(next)
-  }
-
   if (err && !ready) return <p className="err" role="alert">{err}</p>
   if (!ready) return <p>Lade …</p>
 
@@ -129,20 +172,10 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
 
   return (
     <>
-      <div className="daybar">
-        <DayNav day={day} setDay={setDay} sub={`${res.length} Reservierungen · ${res.reduce((s, r) => s + r.party, 0)} Gäste`} />
-        <span className="grow" />
-        <button className="ghost" onClick={() => setDlg({ kind: 'guests' })}>Gäste suchen</button>
-        {canManage && <button className="ghost" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Bearbeiten beenden' : 'Bearbeiten'}</button>}
-        {canWrite && <button className="ghost" aria-pressed={blocked} onClick={() => saveRule({ blocked: !blocked })}>{blocked ? 'Tag entsperren' : 'Tag sperren'}</button>}
-        {canManage && <button className="ghost" aria-expanded={lockOpen} onClick={() => setLockOpen(!lockOpen)}>Bereich sperren</button>}
-        {canWrite && <button onClick={() => open({ start: 1140 })}>Neue Reservierung</button>}
-      </div>
-      {(lockOpen || manage) && room && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
-      {blocked && <p className="banner" role="status">Gesperrt: An diesem Tag sind keine Reservierungen möglich (z. B. Urlaub).</p>}
-      <label className="daynote">Hinweis für den Tag
-        <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (rule?.note ?? '') && saveRule({ note: note.trim() || null })} />
-      </label>
+      <DayHeader team={team} day={day} setDay={setDay} sub={`${res.length} Reservierungen · ${res.reduce((s, r) => s + r.party, 0)} Gäste`}
+        rule={rule} saveRule={saveRule} ruleErr={ruleErr} guests={guests} room={room} onRoom={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))}
+        showLock={manage} onNew={() => open({ start: 1140 })}
+        edit={canManage && <button className="ghost" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Bearbeiten beenden' : 'Bearbeiten'}</button>} />
 
       <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
       {room && roomClosed(room, day) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
@@ -221,7 +254,6 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
           onDelete={async () => { const { error } = await supabase.from('reservations').delete().eq('id', r.id); if (error) return setErr(error.message); setDlg(null); setMsg('Reservierung storniert'); loadDay() }} />
       })()}
       {dlg?.kind === 'tables' && room && <TableManager team={team} room={room} tables={tables} onClose={() => setDlg(null)} onSaved={t => { setTables(t); setDlg(null); setMsg('Tische gespeichert') }} />}
-      {dlg?.kind === 'guests' && <GuestSearch team={team} guests={guests} onClose={() => setDlg(null)} />}
       <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
     </>
   )
