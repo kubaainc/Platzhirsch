@@ -236,3 +236,16 @@ textarea{width:100%}
 
 .seg button[aria-pressed=true]:hover:not(:disabled),.daybar button[aria-pressed=true]:hover:not(:disabled),.pers button[aria-pressed=true]:hover:not(:disabled){background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .sw.black{border-color:var(--line-strong)}
+
+.stamm{display:grid;gap:16px;max-width:760px;margin-bottom:16px}
+.stamm>section{display:grid;gap:14px;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:2px}
+.stamm>section>*{margin:0}
+.stamm h2{margin:0}
+.stamm .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:0}
+.stamm textarea{width:100%}
+.wdays{display:flex;flex-wrap:wrap}
+.wdays button{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);margin-left:-1px;min-width:48px;padding:0 12px}
+.wdays button[aria-pressed=true]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.wdays button[aria-pressed=true]:hover:not(:disabled){background:var(--ink);color:var(--surface)}
+:root[data-look="tintenblau"] .stamm>section{border-radius:8px}
+:root[data-look="tintenblau"] .wdays button{border-radius:0}
