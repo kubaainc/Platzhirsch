@@ -36,7 +36,7 @@ function snapTo(t: TableRow, x: number, y: number, others: TableRow[], th: numbe
   return { x, y, guide: gx }
 }
 
-export default function Plan({ team, onBack }: { team: Team; onBack: () => void }) {
+export default function Plan({ team }: { team: Team }) {
   const canEdit = team.role === 'admin' || team.role === 'editor'
   const [rooms, setRooms] = useState<Room[]>([])
   const [elements, setElements] = useState<RoomElement[]>([])
@@ -149,8 +149,8 @@ export default function Plan({ team, onBack }: { team: Team; onBack: () => void 
     setLayouts(ls => ls.filter(x => x.id !== l.id)); setMsg(`„${l.name}“ gelöscht`)
   }
 
-  if (err && !ready) return <main><p className="err" role="alert">{err}</p></main>
-  if (!ready) return <main><p>Lade …</p></main>
+  if (err && !ready) return <p className="err" role="alert">{err}</p>
+  if (!ready) return <p>Lade …</p>
   const unplaced = roomTables.filter(t => !t.placed)
   const knob = edit && selected && selected.placed && selected.room_id === roomId && room ? (() => {
     const r = Math.max(selected.w!, selected.h!) / 2 + 34
@@ -159,9 +159,7 @@ export default function Plan({ team, onBack }: { team: Team; onBack: () => void 
   })() : null
 
   return (
-    <main className="wide">
-      <p><button className="ghost" onClick={onBack}>← Teams</button></p>
-      <h1>{team.name}</h1>
+    <>
       <div className="bar">
         <div className="tabs" role="tablist">
           {rooms.map(r => (
@@ -257,6 +255,6 @@ export default function Plan({ team, onBack }: { team: Team; onBack: () => void 
         </>
       )}
       <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
-    </main>
+    </>
   )
 }

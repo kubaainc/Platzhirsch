@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type Team } from './supabase'
-import Plan from './Plan'
+import TeamView from './Team'
 
 const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -67,7 +67,7 @@ function Teams({ session }: { session: Session }) {
     load()
   }
 
-  if (open) return <Plan team={open} onBack={() => setOpen(null)} />
+  if (open) return <TeamView team={open} onBack={() => setOpen(null)} />
 
   return (
     <main>
