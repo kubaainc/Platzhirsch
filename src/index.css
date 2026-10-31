@@ -179,7 +179,7 @@ li{background:var(--surface);border:1px solid var(--line);border-radius:2px}
 .g-inline input{width:6rem}
 .g-days{display:grid;grid-auto-flow:column;grid-auto-columns:64px;gap:8px;overflow-x:auto;padding-bottom:6px}
 .g-days button{display:grid;gap:0;min-height:68px;padding:6px 0;line-height:1.2;font-family:var(--font-mono)}
-.g-days button.none{opacity:.5}
+.g-days button.none{opacity:.5;cursor:not-allowed}
 .g-days small{font-size:11px;font-family:var(--font-display);opacity:.85}
 .g-days b{font-size:16px}
 .g-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
