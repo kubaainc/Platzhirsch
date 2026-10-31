@@ -306,7 +306,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
           {roomClosed(room, day) && <p className="banner" role="status">Gesperrt: Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen. Über „Bearbeiten“ kannst du die Sperre entfernen.</p>}
           <p className="legend">
             <span><i className="sw" />Online reservierbar</span>
-            <span><i className="sw black" />Nicht online reservierbar, nur Team</span>
+            <span><i className="sw black" />Nicht online</span>
             <span>{roomTables.length} Tische · {roomTables.reduce((s, t) => s + t.max_seats, 0)} Plätze</span>
           </p>
           {!edit && (
