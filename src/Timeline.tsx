@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
-import { RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, roomClosed, suggest, tableBusy } from './booking'
 
 const DEFAULT_HOURS = { from: 1080, to: 1380 }
@@ -26,6 +26,7 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
   const canWrite = team.role !== 'viewer'
   const canManage = team.role === 'admin' || team.role === 'editor'
   const [manage, setManage] = useState(false)
+  const [lockOpen, setLockOpen] = useState(false)
   useEffect(() => { onEditing(manage); return () => onEditing(false) }, [manage, onEditing])
   const [day, setDay] = useState(isoDay(new Date()))
   const [rooms, setRooms] = useState<Room[]>([])
@@ -102,8 +103,10 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
         <button className="ghost" onClick={() => setDlg({ kind: 'guests' })}>Gäste suchen</button>
         {canManage && <button className="ghost" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Bearbeiten beenden' : 'Bearbeiten'}</button>}
         {canWrite && <button className="ghost" aria-pressed={blocked} onClick={() => saveRule({ blocked: !blocked })}>{blocked ? 'Tag entsperren' : 'Tag sperren'}</button>}
+        {canManage && <button className="ghost" aria-expanded={lockOpen} onClick={() => setLockOpen(!lockOpen)}>Bereich sperren</button>}
         {canWrite && <button onClick={() => open({ start: 1140 })}>Neue Reservierung</button>}
       </div>
+      {lockOpen && room && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
       {blocked && <p className="banner" role="status">Gesperrt: An diesem Tag sind keine Reservierungen möglich (z. B. Urlaub).</p>}
       <label className="daynote">Hinweis für den Tag
         <input value={note} disabled={!canWrite} placeholder="Große Reservierungen, Besonderes …" onChange={e => setNote(e.target.value)} onBlur={() => note !== (rule?.note ?? '') && saveRule({ note: note.trim() || null })} />
