@@ -396,7 +396,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
             {roomTables.filter(t => t.placed).map(t => (
               <div
                 key={t.id}
-                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${busyNow(t.id) ? (onlyFree ? ' dim' : ' busy') : ''}${t.id === sel && edit ? ' sel' : ''}`}
+                className={`tb${t.round ? ' round' : ''}${t.online_bookable ? '' : ' black'}${busyNow(t.id) ? (onlyFree ? ' dim' : ' busy') : ''}${!edit && !busyNow(t.id) && dayRes.some(r => r.table_id === t.id) ? ' has' : ''}${t.id === sel && edit ? ' sel' : ''}`}
                 style={{
                   left: `${(t.x! / room.width) * 100}%`, top: `${(t.y! / room.height) * 100}%`,
                   width: `${(t.w! / room.width) * 100}%`, height: `${(t.h! / room.height) * 100}%`,
