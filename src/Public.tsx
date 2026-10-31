@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase } from './supabase'
 import { addDays, dayLabel, hm, isoDay } from './booking'
 
@@ -29,7 +29,8 @@ export default function Public({ slug }: { slug: string }) {
   const [day, setDay] = useState(isoDay(new Date()))
   const [party, setParty] = useState(2)
   const [room, setRoom] = useState('')
-  const [slots, setSlots] = useState<Slot[] | null>(null)
+  const [all, setAll] = useState<Record<string, Slot[]> | null>(null)
+  const picked = useRef(false)
   const [start, setStart] = useState<number | null>(null)
   const [full, setFull] = useState<number | null>(null)
   const [occasion, setOccasion] = useState('')
@@ -46,10 +47,23 @@ export default function Public({ slug }: { slug: string }) {
     supabase.rpc('public_info', { p_slug: slug }).then(({ data }) => setInfo((data as Info | null) ?? null))
   }, [slug])
   useEffect(() => {
-    setStart(null); setFull(null); setSlots(null)
-    supabase.rpc('public_slots', { p_slug: slug, p_day: day, p_party: party, p_room: room || null })
-      .then(({ data }) => setSlots((data as Slot[] | null) ?? []))
-  }, [slug, day, party, room])
+    setStart(null); setFull(null); setAll(null)
+    const days = Array.from({ length: DAYS }, (_, i) => addDays(isoDay(new Date()), i))
+    let live = true
+    Promise.all(days.map(d => supabase.rpc('public_slots', { p_slug: slug, p_day: d, p_party: party, p_room: room || null })
+      .then(({ data }) => [d, (data as Slot[] | null) ?? []] as const))).then(rows => {
+      if (!live) return
+      const m = Object.fromEntries(rows)
+      setAll(m)
+      // Ohne eigene Wahl springt die Seite auf den ersten Tag mit freien Zeiten (24 h Vorlauf: heute ist meist zu).
+      if (!picked.current) {
+        const first = days.find(d => m[d].some(x => x.free))
+        if (first) setDay(first)
+      }
+    })
+    return () => { live = false }
+  }, [slug, party, room])
+  useEffect(() => { setStart(null); setFull(null) }, [day])
 
   async function book(e: FormEvent) {
     e.preventDefault()
@@ -76,6 +90,8 @@ export default function Public({ slug }: { slug: string }) {
 
   const persons = (n: number) => `${n} ${n === 1 ? 'Person' : 'Personen'}`
   const today = isoDay(new Date())
+  const slots = all ? (all[day] ?? []) : null
+  const hasFree = (d: string) => !!all?.[d]?.some(x => x.free)
   const free = (slots ?? []).filter(s => s.free)
   const alts = full === null ? [] : [...free].sort((a, b) => Math.abs(a.start_min - full) - Math.abs(b.start_min - full)).slice(0, 3).sort((a, b) => a.start_min - b.start_min)
   const stepNo = step
@@ -112,7 +128,7 @@ export default function Public({ slug }: { slug: string }) {
                 {Array.from({ length: DAYS }, (_, i) => addDays(today, i)).map((d, i) => {
                   const p = dayParts(d)
                   return (
-                    <button type="button" key={d} aria-pressed={day === d} onClick={() => setDay(d)}>
+                    <button type="button" key={d} className={all && !hasFree(d) ? 'none' : ''} aria-pressed={day === d} aria-label={`${dayLabel(d)}${all && !hasFree(d) ? ', keine freien Zeiten online' : ''}`} onClick={() => { picked.current = true; setDay(d) }}>
                       <small>{i === 0 ? 'heute' : p.wd}</small><b>{p.n}.</b><small>{p.mon}</small>
                     </button>
                   )
