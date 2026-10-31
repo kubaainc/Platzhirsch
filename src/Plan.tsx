@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
-import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
+import { DEFAULT_HOURS, NewReservation } from './Timeline'
+import { supabase, type DayRule, type Guest, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { isoDay, roomClosed, tableBusy } from './booking'
 
 const FORMS: [string, string, number, number, boolean][] = [
@@ -70,10 +71,10 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
   const [occTime, setOccTime] = useState('19:00')
   const [onlyFree, setOnlyFree] = useState(false)
   const [dayRes, setDayRes] = useState<Reservation[]>([])
-  useEffect(() => {
-    if (!occ) return
-    supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', occDay).then(({ data }) => setDayRes((data as Reservation[] | null) ?? []))
-  }, [occ, occDay, team.id])
+  const loadOcc = () => supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', occDay).then(({ data }) => setDayRes((data as Reservation[] | null) ?? []))
+  useEffect(() => { if (occ) loadOcc() }, [occ, occDay, team.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [book, setBook] = useState<string | null>(null)
+  const canBook = team.role !== 'viewer'
   const planRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -397,9 +398,10 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
                   transform: `translate(-50%,-50%) rotate(${t.rot}deg)`,
                 }}
                 onPointerDown={e => startDrag(e, t)}
-                role={edit ? 'button' : undefined}
-                tabIndex={edit ? 0 : undefined}
-                onKeyDown={edit ? e => { if (e.key === 'Enter' || e.key === ' ') setSel(t.id) } : undefined}
+                onClick={!edit && canBook ? () => setBook(t.id) : undefined}
+                role={edit || canBook ? 'button' : undefined}
+                tabIndex={edit || canBook ? 0 : undefined}
+                onKeyDown={edit ? e => { if (e.key === 'Enter' || e.key === ' ') setSel(t.id) } : canBook ? e => { if (e.key === 'Enter' || e.key === ' ') setBook(t.id) } : undefined}
                 aria-label={`Tisch ${t.label}, ${t.min_seats} bis ${t.max_seats} Personen${t.online_bookable ? '' : ', nur Team'}`}
               >
                 <span style={{ transform: `rotate(${-t.rot}deg)` }}><b>{t.label}</b><small>{t.min_seats}–{t.max_seats}p</small></span>
@@ -433,7 +435,39 @@ export default function Plan({ team, onEditing }: { team: Team; onEditing: (e: b
           {unplaced.length > 0 && <p>Nicht platziert: {unplaced.map(t => t.label).join(', ')}</p>}
         </>
       )}
+      {book && room && <PlanBook team={team} rooms={rooms} tables={tables} roomId={roomId} table={book} day={occ ? occDay : isoDay(new Date())} start={occ ? occStart : 1140}
+        onClose={() => setBook(null)} onSaved={() => { setBook(null); setMsg('Reservierung gespeichert'); if (occ) loadOcc() }} />}
       <div aria-live="polite">{msg && <p className="toast">{msg}</p>}{err && <p className="err" role="alert">{err}</p>}</div>
     </>
   )
+}
+
+/** Telefon-Reservierung direkt aus dem Raumplan: gleiche Maske wie in der Zeitleiste, Tisch ist vorgewählt. */
+function PlanBook({ team, rooms, tables, roomId, table, day: day0, start, onClose, onSaved }: {
+  team: Team; rooms: Room[]; tables: TableRow[]; roomId: string; table: string; day: string; start: number; onClose: () => void; onSaved: () => void
+}) {
+  const [day, setDay] = useState(day0)
+  const [guests, setGuests] = useState<Guest[] | null>(null)
+  const [hours, setHours] = useState(DEFAULT_HOURS)
+  const [res, setRes] = useState<Reservation[]>([])
+  const [blocked, setBlocked] = useState(false)
+  useEffect(() => {
+    Promise.all([
+      supabase.from('guests').select('*').eq('team_id', team.id).order('name'),
+      supabase.from('teams').select('settings').eq('id', team.id).single(),
+    ]).then(([g, tm]) => {
+      const h = (tm.data?.settings as { hours?: { from: number; to: number } } | undefined)?.hours
+      if (h) setHours(h)
+      setGuests((g.data ?? []) as Guest[])
+    })
+  }, [team.id])
+  useEffect(() => {
+    Promise.all([
+      supabase.from('reservations').select('*').eq('team_id', team.id).eq('day', day),
+      supabase.from('day_rules').select('*').eq('team_id', team.id).eq('day', day).maybeSingle(),
+    ]).then(([a, b]) => { setRes((a.data ?? []) as Reservation[]); setBlocked(!!(b.data as DayRule | null)?.blocked) })
+  }, [team.id, day])
+  if (!guests) return null
+  return <NewReservation team={team} day={day} rooms={rooms} tables={tables} guests={guests} res={res} hours={hours} initial={{ table, start }} roomId={roomId}
+    onDay={setDay} blocked={blocked} onClose={onClose} onSaved={onSaved} />
 }
