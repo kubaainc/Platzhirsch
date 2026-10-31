@@ -53,6 +53,8 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   const [msg, setMsg] = useState('')
   const [dlg, setDlg] = useState<null | { kind: 'new'; v: NewRes } | { kind: 'res'; id: string } | { kind: 'guests' } | { kind: 'tables' }>(null)
   const [note, setNote] = useState('')
+  const drag = useRef<{ id: string; x0: number; y0: number; moved: boolean } | null>(null)
+  const [off, setOff] = useState<{ id: string; dx: number; dy: number } | null>(null)
 
   useEffect(() => {
     (async () => {
@@ -88,6 +90,18 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
   const seats = rows.reduce((s, t) => s + t.max_seats, 0)
   const blocked = !!rule?.blocked
   const open = (v: NewRes) => { if (blocked) return setMsg('Dieser Tag ist gesperrt. Entsperre ihn, um zu reservieren.'); setDlg({ kind: 'new', v }) }
+
+  async function moveRes(r: Reservation, tableId: string, start: number) {
+    const nt = tables.find(x => x.id === tableId)
+    if (!nt || (nt.id === r.table_id && start === r.start_min)) return
+    setErr(''); setMsg('')
+    if (tableBusy(nt.id, start, r.duration_min, res, r.id)) return setErr(`${nt.label} ist um ${hm(start)} Uhr belegt.`)
+    const reserve = findReserve({ tables, rooms, res, roomId: nt.room_id, start, dur: r.duration_min, party: r.party, manual: true, ignore: r.id, day: r.day }, nt)
+    const { error } = await supabase.from('reservations').update({ table_id: nt.id, alt_table_id: reserve?.id ?? null, start_min: start }).eq('id', r.id)
+    if (error) return setErr(error.message)
+    setMsg(`Verschoben auf ${nt.label}, ${hm(start)} Uhr`)
+    await loadDay()
+  }
 
   async function saveRule(patch: Partial<DayRule>) {
     const next = { team_id: team.id, day, blocked: rule?.blocked ?? false, note: rule?.note ?? null, ...patch }
@@ -145,7 +159,7 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
         {rows.map(t => (
           <div className="tl-row" role="row" key={t.id}>
             <div className="tl-lab" role="rowheader"><b>{t.label}</b><span className="soft">{t.min_seats}–{t.max_seats}p{!t.online_bookable && <i className="sw black" title="Nur Team" />}</span></div>
-            <div className="tl-track" onClick={e => {
+            <div className="tl-track" data-table={t.id} onClick={e => {
               if (!canWrite || (e.target as HTMLElement).closest('.rbar')) return
               const rc = e.currentTarget.getBoundingClientRect()
               const m = hours.from + Math.floor(((e.clientX - rc.left) / rc.width) * span / slot) * slot
@@ -154,8 +168,28 @@ export default function Timeline({ team, onEditing, day, setDay, slot }: { team:
               {Array.from({ length: Math.ceil(span / slot) }, (_, i) => hours.from + i * slot).map(m => <i key={m} className={`grid${(m - hours.from) % 60 ? ' sub' : ''}`} style={{ left: `${((m - hours.from) / span) * 100}%` }} />)}
               {res.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => {
                 const reserve = r.table_id !== t.id
-                return <button key={r.id} className={`rbar${reserve ? ' reserve' : ''}`} onClick={() => setDlg({ kind: 'res', id: r.id })}
-                  style={{ left: `${((r.start_min - hours.from) / span) * 100}%`, width: `${(r.duration_min / span) * 100}%` }}
+                const dragging = off?.id === r.id
+                return <button key={r.id} className={`rbar${reserve ? ' reserve' : ''}${dragging ? ' drag' : ''}`}
+                  onClick={() => { if (drag.current?.moved) { drag.current = null; return } setDlg({ kind: 'res', id: r.id }) }}
+                  onPointerDown={e => { if (!canWrite || reserve || e.button > 0) return; e.currentTarget.setPointerCapture(e.pointerId); drag.current = { id: r.id, x0: e.clientX, y0: e.clientY, moved: false } }}
+                  onPointerMove={e => {
+                    const d = drag.current; if (!d || d.id !== r.id) return
+                    const dx = e.clientX - d.x0, dy = e.clientY - d.y0
+                    if (!d.moved && Math.hypot(dx, dy) < 6) return
+                    d.moved = true; setOff({ id: r.id, dx, dy })
+                  }}
+                  onPointerUp={e => {
+                    const d = drag.current; if (!d || d.id !== r.id) return
+                    setOff(null)
+                    if (!d.moved) { drag.current = null; return }
+                    const w = e.currentTarget.parentElement!.getBoundingClientRect().width
+                    const start = Math.max(hours.from, Math.min(hours.to - slot, r.start_min + Math.round(((e.clientX - d.x0) / w) * span / slot) * slot))
+                    const row = document.elementsFromPoint(e.clientX, e.clientY).find(x => (x as HTMLElement).dataset.table) as HTMLElement | undefined
+                    moveRes(r, row?.dataset.table ?? r.table_id!, start)
+                    setTimeout(() => { drag.current = null }, 0)
+                  }}
+                  onPointerCancel={() => { drag.current = null; setOff(null) }}
+                  style={{ left: `${((r.start_min - hours.from) / span) * 100}%`, width: `${(r.duration_min / span) * 100}%`, ...(dragging ? { transform: `translate(${off.dx}px, ${off.dy}px)` } : {}) }}
                   aria-label={`${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}, ${r.party} Personen, ${hm(r.start_min)} Uhr${reserve ? ', Wetter-Reserve' : ''}`}>
                   {reserve ? 'Reserve' : `${r.party}p · ${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}`}
                 </button>
