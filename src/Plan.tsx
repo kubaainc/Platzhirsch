@@ -297,7 +297,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
     <>
       <DayHeader team={team} day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`}
         rule={rule} saveRule={saveRule} ruleErr={ruleErr} guests={guests} room={room} onRoom={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))}
-        showLock={edit} onNew={() => setBook({})} />
+        showLock={edit} onNew={() => setBook({})} edit={null} />
       <div className="bar">
         <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
       </div>
