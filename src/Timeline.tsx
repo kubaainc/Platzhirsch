@@ -125,7 +125,7 @@ export default function Timeline({ team }: { team: Team }) {
           <div className="tl-row" role="row" key={t.id}>
             <div className="tl-lab" role="rowheader"><b>{t.label}</b><span className="soft">{t.min_seats}–{t.max_seats}p{!t.online_bookable && <i className="sw black" title="Nur Team" />}</span></div>
             <div className="tl-track" onClick={e => {
-              if (!canWrite || (e.target as HTMLElement).closest('.bar')) return
+              if (!canWrite || (e.target as HTMLElement).closest('.rbar')) return
               const rc = e.currentTarget.getBoundingClientRect()
               const m = hours.from + Math.floor(((e.clientX - rc.left) / rc.width) * span / 30) * 30
               open({ table: t.id, start: Math.max(hours.from, Math.min(hours.to - 30, m)) })
@@ -133,7 +133,7 @@ export default function Timeline({ team }: { team: Team }) {
               {hourCells.map(m => <i key={m} className="grid" style={{ left: `${((m - hours.from) / span) * 100}%` }} />)}
               {res.filter(r => r.table_id === t.id || r.alt_table_id === t.id).map(r => {
                 const reserve = r.table_id !== t.id
-                return <button key={r.id} className={`bar${reserve ? ' reserve' : ''}`} onClick={() => setDlg({ kind: 'res', id: r.id })}
+                return <button key={r.id} className={`rbar${reserve ? ' reserve' : ''}`} onClick={() => setDlg({ kind: 'res', id: r.id })}
                   style={{ left: `${((r.start_min - hours.from) / span) * 100}%`, width: `${(r.duration_min / span) * 100}%` }}
                   aria-label={`${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}, ${r.party} Personen, ${hm(r.start_min)} Uhr${reserve ? ', Wetter-Reserve' : ''}`}>
                   {reserve ? 'Reserve' : `${r.party}p · ${guestById.get(r.guest_id ?? '')?.name ?? 'Gast'}`}
