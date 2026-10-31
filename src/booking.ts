@@ -13,6 +13,8 @@ export type FindOpts = {
   roomId: string; start: number; dur: number; party: number
   /** true = Team vergibt von Hand: schwarze Tische erlaubt */
   manual: boolean; ignore?: string
+  /** Tag der Reservierung: gesperrte Bereiche liefern keine Wetter-Reserve */
+  day?: string
 }
 
 /** Kleinster passender freier Tisch im Bereich. */
@@ -27,7 +29,7 @@ export function findTable(o: FindOpts): TableRow | null {
 export function findReserve(o: FindOpts, chosen: TableRow): TableRow | null {
   const room = o.rooms.find(r => r.id === chosen.room_id)
   if (!room || room.outdoor) return null
-  const outdoor = new Set(o.rooms.filter(r => r.outdoor).map(r => r.id))
+  const outdoor = new Set(o.rooms.filter(r => r.outdoor && !(o.day && roomClosed(r, o.day))).map(r => r.id))
   const c = o.tables
     .filter(t => outdoor.has(t.room_id) && t.placed && t.online_bookable && t.max_seats >= o.party && t.min_seats <= o.party && !tableBusy(t.id, o.start, o.dur, o.res, o.ignore))
     .sort((a, b) => a.max_seats - b.max_seats)

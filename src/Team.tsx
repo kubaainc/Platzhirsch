@@ -3,9 +3,11 @@ import { DEFAULT_COLORS, supabase, type Colors, type Team as TeamT } from './sup
 import Plan from './Plan'
 import Timeline from './Timeline'
 import Members from './Members'
+import { isoDay } from './booking'
 
 export default function Team({ team, onBack }: { team: TeamT; onBack: () => void }) {
   const [view, setView] = useState<'tl' | 'plan'>('tl')
+  const [day, setDay] = useState(isoDay(new Date()))
   const [settings, setSettings] = useState<Record<string, unknown>>({})
   const [colors, setColors] = useState<Colors>(DEFAULT_COLORS)
   const [picking, setPicking] = useState(false)
@@ -104,7 +106,7 @@ export default function Team({ team, onBack }: { team: TeamT; onBack: () => void
           <Members team={team} />
         </div>
       )}
-      {view === 'tl' ? <Timeline team={team} onEditing={setEditing} /> : <Plan team={team} onEditing={setEditing} />}
+      {view === 'tl' ? <Timeline team={team} onEditing={setEditing} day={day} setDay={setDay} /> : <Plan team={team} onEditing={setEditing} day={day} setDay={setDay} />}
     </main>
   )
 }

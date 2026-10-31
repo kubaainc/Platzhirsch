@@ -22,13 +22,25 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
   )
 }
 
-export default function Timeline({ team, onEditing }: { team: Team; onEditing: (e: boolean) => void }) {
+/** Tagesauswahl links oben, in Zeitleiste und Raumplan gleich. */
+export function DayNav({ day, setDay, sub }: { day: string; setDay: (d: string) => void; sub: string }) {
+  return (
+    <>
+      <button className="ghost" onClick={() => setDay(addDays(day, -1))} aria-label="Vorheriger Tag">‹</button>
+      <div className="daytitle"><b>{dayLabel(day)}</b><span className="soft">{sub}</span></div>
+      <button className="ghost" onClick={() => setDay(addDays(day, 1))} aria-label="Nächster Tag">›</button>
+      <input type="date" value={day} onChange={e => e.target.value && setDay(e.target.value)} aria-label="Datum" />
+      <button className="ghost" onClick={() => setDay(isoDay(new Date()))}>Heute</button>
+    </>
+  )
+}
+
+export default function Timeline({ team, onEditing, day, setDay }: { team: Team; onEditing: (e: boolean) => void; day: string; setDay: (d: string) => void }) {
   const canWrite = team.role !== 'viewer'
   const canManage = team.role === 'admin' || team.role === 'editor'
   const [manage, setManage] = useState(false)
   const [lockOpen, setLockOpen] = useState(false)
   useEffect(() => { onEditing(manage); return () => onEditing(false) }, [manage, onEditing])
-  const [day, setDay] = useState(isoDay(new Date()))
   const [rooms, setRooms] = useState<Room[]>([])
   const [tables, setTables] = useState<TableRow[]>([])
   const [guests, setGuests] = useState<Guest[]>([])
@@ -94,11 +106,7 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
   return (
     <>
       <div className="daybar">
-        <button className="ghost" onClick={() => setDay(addDays(day, -1))} aria-label="Vorheriger Tag">‹</button>
-        <div className="daytitle"><b>{dayLabel(day)}</b><span className="soft">{res.length} Reservierungen · {res.reduce((s, r) => s + r.party, 0)} Gäste</span></div>
-        <button className="ghost" onClick={() => setDay(addDays(day, 1))} aria-label="Nächster Tag">›</button>
-        <input type="date" value={day} onChange={e => e.target.value && setDay(e.target.value)} aria-label="Datum" />
-        <button className="ghost" onClick={() => setDay(isoDay(new Date()))}>Heute</button>
+        <DayNav day={day} setDay={setDay} sub={`${res.length} Reservierungen · ${res.reduce((s, r) => s + r.party, 0)} Gäste`} />
         <span className="grow" />
         <button className="ghost" onClick={() => setDlg({ kind: 'guests' })}>Gäste suchen</button>
         {canManage && <button className="ghost" aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? 'Bearbeiten beenden' : 'Bearbeiten'}</button>}
@@ -190,7 +198,7 @@ function ResDetail({ r, guest, tables, rooms, res, canWrite, onClose, onDelete, 
     const nt = tables.find(x => x.id === tid)
     if (!nt) return setErr('Bitte einen Tisch wählen.')
     if (party < 1) return setErr('Mindestens 1 Person.')
-    const o = { tables, rooms, res, roomId: nt.room_id, start: s0, dur: r.duration_min, party, manual: true, ignore: r.id }
+    const o = { tables, rooms, res, roomId: nt.room_id, start: s0, dur: r.duration_min, party, manual: true, ignore: r.id, day: r.day }
     if (tableBusy(nt.id, s0, r.duration_min, res, r.id)) return setErr(`${nt.label} ist zu dieser Zeit belegt.`)
     const reserve = findReserve(o, nt)
     const { error } = await supabase.from('reservations').update({ table_id: nt.id, alt_table_id: reserve?.id ?? null, start_min: s0, party, note: note.trim() || null }).eq('id', r.id)
@@ -256,13 +264,18 @@ export function NewReservation(p: {
       : d.length >= 3 && (g.phone ?? '').replace(/\D/g, '').includes(d)
     return p.guests.filter(ok).slice(0, 6)
   }, [p.guests, last, name, email, phone, picked])
+  const suggest_ = (f: 'name' | 'phone' | 'email') => last === f && hits.length > 0 && (
+    <ul className="suggest" aria-label="Bekannte Gäste" onMouseDown={e => e.preventDefault()}>
+      {hits.map(g => <li key={g.id}><button type="button" className="ghost" onClick={() => pick(g)}><b>{g.name}</b><span className="soft">{[g.phone, g.email].filter(Boolean).join(' · ')}</span></button></li>)}
+    </ul>
+  )
   async function pick(g: Guest) {
     setPicked(g); setName(g.name); setPhone(g.phone ?? ''); setEmail(g.email ?? '')
     const { data } = await supabase.from('reservations').select('note').eq('guest_id', g.id).not('note', 'is', null).order('day', { ascending: false }).limit(1)
     const n = (data as { note: string | null }[] | null)?.[0]?.note
     if (n) setNote(n)
   }
-  const opts = { tables: p.tables, rooms: p.rooms, res: p.res, roomId: rid, start, dur: STAY, party, manual: true }
+  const opts = { tables: p.tables, rooms: p.rooms, res: p.res, roomId: rid, start, dur: STAY, party, manual: true, day: p.day }
   const auto = useMemo(() => findTable(opts), [p.tables, p.res, rid, start, party]) // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = tableId === 'auto' ? auto : p.tables.find(t => t.id === tableId) ?? null
   const reserve = chosen ? findReserve(opts, chosen) : null
@@ -299,11 +312,10 @@ export function NewReservation(p: {
     <Modal title="Neue Reservierung" onClose={p.onClose}>
       <form onSubmit={submit} className="grid2">
         {p.onDay && <label style={{ gridColumn: '1/-1' }}>Datum<input type="date" required value={p.day} onChange={e => e.target.value && p.onDay!(e.target.value)} /></label>}
-        <label>Name<input required value={name} onChange={e => { setName(e.target.value); setLast('name'); setPicked(null) }} placeholder={matched?.name} autoComplete="off" /></label>
+        <div className="sugg-wrap"><label>Name<input required value={name} onChange={e => { setName(e.target.value); setLast('name'); setPicked(null) }} onBlur={() => setLast(null)} placeholder={matched?.name} autoComplete="off" /></label>{suggest_('name')}</div>
         <label>Personen<input type="number" min={1} max={60} required value={party} onChange={e => setParty(Math.max(1, +e.target.value || 1))} /></label>
-        <label>Telefon<input inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); setLast('phone'); setPicked(null) }} autoComplete="off" /></label>
-        <label>E-Mail<input type="email" value={email} onChange={e => { setEmail(e.target.value); setLast('email'); setPicked(null) }} autoComplete="off" /></label>
-        {hits.length > 0 && <ul className="hits" style={{ gridColumn: '1/-1' }} aria-label="Bekannte Gäste">{hits.map(g => <li key={g.id}><button type="button" className="ghost" onClick={() => pick(g)}><b>{g.name}</b><span className="soft">{[g.phone, g.email].filter(Boolean).join(' · ')}</span></button></li>)}</ul>}
+        <div className="sugg-wrap"><label>Telefon<input inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); setLast('phone'); setPicked(null) }} onBlur={() => setLast(null)} autoComplete="off" /></label>{suggest_('phone')}</div>
+        <div className="sugg-wrap"><label>E-Mail<input type="email" value={email} onChange={e => { setEmail(e.target.value); setLast('email'); setPicked(null) }} onBlur={() => setLast(null)} autoComplete="off" /></label>{suggest_('email')}</div>
         {matched && <p className="match" role="status" style={{ gridColumn: '1/-1' }}>Gast gefunden: <b>{matched.name}</b>. Die Reservierung wird diesem Gast zugeordnet.</p>}
         <label>Uhrzeit<select value={start} onChange={e => setStart(+e.target.value)}>{times.map(m => <option key={m} value={m}>{hm(m)} Uhr</option>)}</select></label>
         <label>Bereich<select value={rid} onChange={e => { setRid(e.target.value); setTableId('auto') }}>{p.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
