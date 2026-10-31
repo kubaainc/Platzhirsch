@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomLock, RoomSettings, RoomTabs } from './RoomTabs'
 import { DayHeader, DEFAULT_HOURS, NewReservation, useDayRule } from './Timeline'
 import { supabase, type DayRule, type Guest, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { roomClosed, tableBusy } from './booking'
@@ -297,7 +297,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
     <>
       <DayHeader team={team} day={day} setDay={setDay} sub={`${dayRes.length} Reservierungen · ${dayRes.reduce((n, r) => n + r.party, 0)} Gäste`}
         rule={rule} saveRule={saveRule} ruleErr={ruleErr} guests={guests} room={room} onRoom={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))}
-        showLock={edit} onNew={() => setBook({})} edit={null} />
+        showLock={false} onNew={() => setBook({})} edit={null} />
       <div className="bar">
         <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={edit} onSelect={id => { setRoomId(id); setSel(null); setSelEl(null) }} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? ''); setSel(null); setSelEl(null) }} />
       </div>
@@ -376,7 +376,6 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
           })()}
           {edit && !selected && !selEl && room && (
             <>
-              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
               <div className="shape">
                 {!wall
                   ? <button className="ghost" onClick={createWall}>Raumform anlegen (Wände)</button>
@@ -398,6 +397,8 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
                 : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>}
             </div>
           )}
+          {edit && <RoomLock room={room} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
+          {edit && !selected && !selEl && <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />}
           <div className={`plan${edit ? ' edit' : ''}${roomClosed(room, day) ? ' closed' : ''}`} ref={planRef} style={{ aspectRatio: `${room.width}/${room.height}` }} onPointerDown={e => { if (edit && e.target === e.currentTarget) { setSel(null); setSelEl(null) } }}>
             <svg viewBox={`0 0 ${room.width} ${room.height}`} preserveAspectRatio="none" aria-hidden="true">
               {elements.filter(x => x.room_id === roomId && x.kind === 'wall' && x.path).map(x => (
