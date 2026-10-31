@@ -10,11 +10,16 @@ function Login() {
   const [pw, setPw] = useState('')
   const [signup, setSignup] = useState(false)
   const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
   async function submit(e: FormEvent) {
     e.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setMsg('')
     const { error, data } = signup
       ? await supabase.auth.signUp({ email, password: pw })
       : await supabase.auth.signInWithPassword({ email, password: pw })
+    setBusy(false)
     if (error) setMsg(error.message)
     else if (signup && !data.session) setMsg('Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.')
   }
@@ -24,7 +29,7 @@ function Login() {
       <form onSubmit={submit}>
         <label>E-Mail<input type="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label>Passwort<input type="password" required minLength={8} value={pw} onChange={e => setPw(e.target.value)} /></label>
-        <button type="submit">{signup ? 'Konto anlegen' : 'Anmelden'}</button>
+        <button type="submit" disabled={busy}>{signup ? 'Konto anlegen' : 'Anmelden'}</button>
         <button type="button" className="ghost" onClick={() => setSignup(!signup)}>
           {signup ? 'Ich habe schon ein Konto' : 'Neues Konto anlegen'}
         </button>
