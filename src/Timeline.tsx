@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { supabase, type DayRule, type Guest, type Reservation, type Room, type TableRow, type Team } from './supabase'
 import { RoomSettings, RoomTabs } from './RoomTabs'
-import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, suggest, tableBusy } from './booking'
+import { addDays, dayLabel, findReserve, findTable, guestsAt, hm, isoDay, matchGuest, roomClosed, suggest, tableBusy } from './booking'
 
 const DEFAULT_HOURS = { from: 1080, to: 1380 }
 const STAY = 120
@@ -110,6 +110,7 @@ export default function Timeline({ team, onEditing }: { team: Team; onEditing: (
       </label>
 
       <RoomTabs teamId={team.id} rooms={rooms} roomId={roomId} showAdd={manage} onSelect={setRoomId} onAdded={r => { setRooms(rs => [...rs, r]); setRoomId(r.id) }} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
+      {room && roomClosed(room, day) && <p className="banner" role="status">Dieser Bereich ist an diesem Tag gesperrt und online nicht buchbar. Das Team kann trotzdem eintragen.</p>}
       {manage && room && (
         <>
           <RoomSettings room={room} showSize={false} onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />

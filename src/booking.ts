@@ -71,3 +71,7 @@ export function matchGuest<G extends { phone: string | null; email: string | nul
   const p = digits(phone), e = email.trim().toLowerCase()
   return guests.find(g => (p.length >= 6 && g.phone && digits(g.phone) === p) || (e && g.email && g.email.toLowerCase() === e)) ?? null
 }
+
+/** Bereich an diesem Tag gesperrt (dauerhaft oder in einem Sperrzeitraum). */
+export const roomClosed = (r: { closed: boolean; closed_ranges: { from: string; to: string }[] }, day: string) =>
+  r.closed || (r.closed_ranges ?? []).some(x => x.from <= day && day <= x.to)

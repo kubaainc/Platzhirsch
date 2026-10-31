@@ -56,6 +56,8 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded, on
 /** Name, Draußen und Maße eines Bereichs. Änderungen werden sofort gespeichert. */
 export function RoomSettings({ room, showSize, onChange }: { room: Room; showSize: boolean; onChange: (r: Room) => void }) {
   const [err, setErr] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   async function patch(p: Partial<Room>) {
     setErr('')
     const next = { ...room, ...p }
@@ -72,6 +74,18 @@ export function RoomSettings({ room, showSize, onChange }: { room: Room; showSiz
       <label>Bereich<input defaultValue={room.name} key={room.id + 'n'} maxLength={30} onBlur={e => { const v = e.target.value.trim(); if (v && v !== room.name) patch({ name: v }) }} /></label>
       <label className="check"><input type="checkbox" checked={room.outdoor} onChange={e => patch({ outdoor: e.target.checked })} />Draußen</label>
       {showSize && <>{num('width')}{num('height')}</>}
+      <label className="check"><input type="checkbox" checked={room.closed} onChange={e => patch({ closed: e.target.checked })} />Gesperrt (online nicht buchbar)</label>
+      <div className="ranges">
+        {room.closed_ranges.map((x, i) => (
+          <span key={i}>Gesperrt {x.from.split('-').reverse().join('.')} bis {x.to.split('-').reverse().join('.')}
+            <button className="ghost" onClick={() => patch({ closed_ranges: room.closed_ranges.filter((_, j) => j !== i) })}>Entfernen</button></span>
+        ))}
+        <span>
+          <label>Sperren von<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+          <label>bis<input type="date" value={to} min={from} onChange={e => setTo(e.target.value)} /></label>
+          <button className="ghost" disabled={!from || !to || to < from} onClick={() => { patch({ closed_ranges: [...room.closed_ranges, { from, to }] }); setFrom(''); setTo('') }}>Zeitraum sperren</button>
+        </span>
+      </div>
       {err && <p className="err" role="alert">{err}</p>}
     </div>
   )
