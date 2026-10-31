@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { RoomSettings, RoomTabs } from './RoomTabs'
+import { RoomDelete, RoomSettings, RoomTabs } from './RoomTabs'
 import { supabase, type Layout, type Reservation, type Room, type RoomElement, type TableRow, type Team } from './supabase'
 import { isoDay, tableBusy } from './booking'
 
@@ -357,7 +357,7 @@ export default function Plan({ team }: { team: Team }) {
           })()}
           {edit && !selected && !selEl && room && (
             <>
-              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />
+              <RoomSettings room={room} showSize onChange={r => setRooms(rs => rs.map(x => (x.id === r.id ? r : x)))} />
               <div className="shape">
                 {!wall
                   ? <button className="ghost" onClick={createWall}>Raumform anlegen (Wände)</button>
@@ -427,6 +427,7 @@ export default function Plan({ team }: { team: Team }) {
               </>
             )}
           </div>
+          {edit && <RoomDelete room={room} onDeleted={id => { const rest = rooms.filter(r => r.id !== id); setRooms(rest); setRoomId(rest[0]?.id ?? '') }} />}
           {unplaced.length > 0 && <p>Nicht platziert: {unplaced.map(t => t.label).join(', ')}</p>}
         </>
       )}

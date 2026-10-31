@@ -8,13 +8,16 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: 
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [outdoor, setOutdoor] = useState(false)
+  const [w, setW] = useState(1200)
+  const [h, setH] = useState(800)
   const [err, setErr] = useState('')
+  const clamp = (v: number) => Math.max(300, Math.min(4000, Math.round(v) || 300))
   async function add(e: FormEvent) {
     e.preventDefault(); setErr('')
     const sort = Math.max(-1, ...rooms.map(r => r.sort)) + 1
-    const { data, error } = await supabase.from('rooms').insert({ team_id: teamId, name: name.trim(), sort, outdoor }).select().single()
+    const { data, error } = await supabase.from('rooms').insert({ team_id: teamId, name: name.trim(), sort, outdoor, width: clamp(w), height: clamp(h) }).select().single()
     if (error) return setErr(error.message)
-    onAdded(data as Room); setName(''); setOutdoor(false); setAdding(false)
+    onAdded(data as Room); setName(''); setOutdoor(false); setW(1200); setH(800); setAdding(false)
   }
   return (
     <>
@@ -26,6 +29,8 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: 
         <form className="pp" onSubmit={add}>
           <label>Name des Bereichs<input required autoFocus value={name} maxLength={30} placeholder="z. B. Lounge" onChange={e => setName(e.target.value)} /></label>
           <label className="check"><input type="checkbox" checked={outdoor} onChange={e => setOutdoor(e.target.checked)} />Draußen (Wetter-Reserve)</label>
+          <label>Breite<input className="num" type="number" min={300} max={4000} step={10} required value={w} onChange={e => setW(Number(e.target.value))} /></label>
+          <label>Höhe<input className="num" type="number" min={300} max={4000} step={10} required value={h} onChange={e => setH(Number(e.target.value))} /></label>
           <button type="submit">Bereich anlegen</button>
           {err && <p className="err" role="alert">{err}</p>}
         </form>
@@ -34,8 +39,8 @@ export function RoomTabs({ teamId, rooms, roomId, onSelect, showAdd, onAdded }: 
   )
 }
 
-/** Name, Draußen, Maße und Löschen eines Bereichs. Änderungen werden sofort gespeichert. */
-export function RoomSettings({ room, showSize, onChange, onDeleted }: { room: Room; showSize: boolean; onChange: (r: Room) => void; onDeleted: (id: string) => void }) {
+/** Name, Draußen und Maße eines Bereichs. Änderungen werden sofort gespeichert. */
+export function RoomSettings({ room, showSize, onChange }: { room: Room; showSize: boolean; onChange: (r: Room) => void }) {
   const [err, setErr] = useState('')
   async function patch(p: Partial<Room>) {
     setErr('')
@@ -43,14 +48,6 @@ export function RoomSettings({ room, showSize, onChange, onDeleted }: { room: Ro
     onChange(next)
     const { error } = await supabase.from('rooms').update(p).eq('id', room.id)
     if (error) setErr(error.message)
-  }
-  async function del() {
-    setErr('')
-    const { count } = await supabase.from('tables').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
-    if (!window.confirm(`Bereich „${room.name}“ mit ${count ?? 0} Tischen wirklich löschen? Reservierungen an diesen Tischen verlieren ihren Tisch.`)) return
-    const { error } = await supabase.from('rooms').delete().eq('id', room.id)
-    if (error) return setErr(error.message)
-    onDeleted(room.id)
   }
   const num = (k: 'width' | 'height') => (
     <label>{k === 'width' ? 'Breite' : 'Höhe'}<input className="num" type="number" min={300} max={4000} step={10} defaultValue={room[k]} key={room.id + k + room[k]}
@@ -61,8 +58,26 @@ export function RoomSettings({ room, showSize, onChange, onDeleted }: { room: Ro
       <label>Bereich<input defaultValue={room.name} key={room.id + 'n'} maxLength={30} onBlur={e => { const v = e.target.value.trim(); if (v && v !== room.name) patch({ name: v }) }} /></label>
       <label className="check"><input type="checkbox" checked={room.outdoor} onChange={e => patch({ outdoor: e.target.checked })} />Draußen</label>
       {showSize && <>{num('width')}{num('height')}</>}
-      <button className="danger" type="button" onClick={del}>Bereich löschen</button>
       {err && <p className="err" role="alert">{err}</p>}
     </div>
+  )
+}
+
+/** Löschen eines Bereichs, bewusst abseits der Einstellungen (unter dem Plan bzw. der Zeitleiste). */
+export function RoomDelete({ room, onDeleted }: { room: Room; onDeleted: (id: string) => void }) {
+  const [err, setErr] = useState('')
+  async function del() {
+    setErr('')
+    const { count } = await supabase.from('tables').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
+    if (!window.confirm(`Bereich „${room.name}“ mit ${count ?? 0} Tischen wirklich löschen? Reservierungen an diesen Tischen verlieren ihren Tisch.`)) return
+    const { error } = await supabase.from('rooms').delete().eq('id', room.id)
+    if (error) return setErr(error.message)
+    onDeleted(room.id)
+  }
+  return (
+    <p className="zone">
+      <button className="ghost danger-text" type="button" onClick={del}>Bereich „{room.name}“ löschen</button>
+      {err && <span className="err" role="alert"> {err}</span>}
+    </p>
   )
 }

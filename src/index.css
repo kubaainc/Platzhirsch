@@ -121,3 +121,5 @@ label.inl input{min-height:0}
 .vtx{width:18px;height:18px;min-height:0;border-radius:50%;background:var(--surface);border:2px solid var(--rot);cursor:move}
 .vtx.sel{background:var(--rot)}
 .mid{width:16px;height:16px;min-height:0;border-radius:50%;background:var(--surface);color:var(--rot);border:1px dashed var(--rot);font-size:12px;line-height:1;cursor:copy;opacity:.7}
+.zone{margin-top:24px}
+button.danger-text{color:var(--rot);border-color:var(--rot);min-height:36px}
