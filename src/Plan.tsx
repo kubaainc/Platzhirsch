@@ -101,7 +101,29 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   const room = rooms.find(r => r.id === roomId)
   const roomTables = useMemo(() => tables.filter(t => t.room_id === roomId), [tables, roomId])
   const selected = tables.find(t => t.id === sel) ?? null
+  // Zurück/Weiter im Bearbeiten-Modus: Schnappschüsse der Tische, nach kurzer Ruhe aufgezeichnet
+  const hist = useRef<TableRow[][]>([])
+  const pos = useRef(0)
+  const restoring = useRef(false)
+  const [, bump] = useState(0)
+  useEffect(() => { if (edit) { hist.current = [tables]; pos.current = 0; bump(n => n + 1) } }, [edit]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sameAll = (a: TableRow[], b: TableRow[]) => a.length === b.length && a.every((t, i) => t.id === b[i].id && same(t, b[i]))
+  useEffect(() => {
+    if (!edit) return
+    if (restoring.current) { restoring.current = false; return }
+    const id = setTimeout(() => {
+      if (sameAll(hist.current[pos.current], tables)) return
+      hist.current = [...hist.current.slice(0, pos.current + 1), tables]; pos.current++; bump(n => n + 1)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [tables, edit]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canUndo = edit && hist.current.length > 0 && (pos.current > 0 || !sameAll(hist.current[0], tables))
+  const canRedo = edit && pos.current < hist.current.length - 1
+  function goto(i: number) { pos.current = i; restoring.current = true; setTables(hist.current[i]); setSel(null); bump(n => n + 1) }
+  const undo = () => goto(sameAll(hist.current[pos.current], tables) ? pos.current - 1 : pos.current)
+  const redo = () => goto(pos.current + 1)
   const update = (id: string, patch: Partial<TableRow>) => setTables(ts => ts.map(t => (t.id === id ? { ...t, ...patch } : t)))
+  const removed = orig.filter(o => !tables.some(t => t.id === o.id))
   const dirty = tables.filter(t => { const o = orig.find(x => x.id === t.id); return o && !same(o, t) })
 
   function toRoom(e: { clientX: number; clientY: number }) {
@@ -228,9 +250,8 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
   async function delTable(t: TableRow) {
     const { count } = await supabase.from('reservations').select('id', { count: 'exact', head: true }).or(`table_id.eq.${t.id},alt_table_id.eq.${t.id},extra_table_ids.cs.{${t.id}}`)
     if (count) return setErr(`Tisch ${t.label} hat Reservierungen. Bitte erst verschieben oder stornieren.`)
-    const { error } = await supabase.from('tables').delete().eq('id', t.id)
-    if (error) return setErr(error.message)
-    setTables(ts => ts.filter(x => x.id !== t.id)); setOrig(o => o.filter(x => x.id !== t.id)); setSel(null)
+    setTables(ts => ts.filter(x => x.id !== t.id)); setSel(null)
+    setMsg(`Tisch ${t.label} entfernt. „Zurück“ holt ihn wieder, „Fertig“ löscht ihn endgültig.`)
   }
 
   async function persist(rows: TableRow[]) {
@@ -243,7 +264,13 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
 
   async function done() {
     setErr('')
-    if (await persist(dirty)) { setEdit(false); setSel(null); setMsg('Plan gespeichert') }
+    if (!(await persist(dirty))) return
+    if (removed.length) {
+      const { error } = await supabase.from('tables').delete().in('id', removed.map(t => t.id))
+      if (error) return setErr(error.message)
+      setOrig(o => o.filter(x => !removed.some(r => r.id === x.id)))
+    }
+    setEdit(false); setSel(null); setMsg('Plan gespeichert')
   }
   function cancel() { setTables(orig); setEdit(false); setSel(null); setMsg('') }
 
@@ -397,7 +424,7 @@ export default function Plan({ team, onEditing, day, setDay }: { team: Team; onE
             {canEdit && (
               <div className="acts">
                 {edit
-                  ? <><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></>
+                  ? <><button className="ghost" disabled={!canUndo} onClick={undo}>← Zurück</button><button className="ghost" disabled={!canRedo} onClick={redo}>Weiter →</button><button className="ghost" onClick={cancel}>Abbrechen</button><button onClick={done}>Fertig</button></>
                   : <button className="ghost" onClick={() => { setEdit(true); setMsg('') }}>Bearbeiten</button>}
               </div>
             )}
