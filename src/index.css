@@ -1,3 +1,7 @@
+@font-face{font-family:'Archivo';font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/archivo-latin-wght-normal.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2')}
+@font-face{font-family:'Geist';font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/geist-latin-wght-normal.woff2') format('woff2')}
+@font-face{font-family:'Geist Mono';font-style:normal;font-weight:100 900;font-display:swap;src:url('/fonts/geist-mono-latin-wght-normal.woff2') format('woff2')}
 :root{color-scheme:light dark;
   --rot:#A66300;--rot-dark:#8A5200;--on-rot:#fff;--rot-wash:rgba(166,99,0,.10);--kreide:#E4E7E2;--canvas:#EEF0ED;--surface:#F8F9F7;--surface-alt:#E4E7E2;--bar-bg:#F8F9F7;--bar-fg:#141816;
   --ink:#141816;--text:#141816;--soft:#565D57;--line:#B9BFB8;--line-strong:#7C847D;--line-soft:#D3D8D1;--err:#B3382C;--ok:#1F7A4A;
